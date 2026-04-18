@@ -1,0 +1,173 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to use for dry-run builds (no release published)'
+        required: false
+        default: '0.0.0-dryrun'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.target.os }}/${{ matrix.target.arch }}
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { os: darwin,  arch: arm64, runner: macos-14,      ext: ''     }
+          - { os: darwin,  arch: amd64, runner: macos-14,      ext: ''     }
+          - { os: linux,   arch: amd64, runner: ubuntu-latest, ext: ''     }
+          - { os: linux,   arch: arm64, runner: ubuntu-24.04-arm, ext: '' }
+          - { os: windows, arch: amd64, runner: windows-latest, ext: '.exe' }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            v="${GITHUB_REF_NAME#v}"
+          else
+            v="${{ inputs.version }}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "ref_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        shell: bash
+        env:
+          GOOS: ${{ matrix.target.os }}
+          GOARCH: ${{ matrix.target.arch }}
+          CGO_ENABLED: '1'
+        run: |
+          mkdir -p out
+          go build \
+            -trimpath \
+            -ldflags "-s -w -X main.version=${{ steps.ver.outputs.version }}" \
+            -o "out/gosaid${{ matrix.target.ext }}" \
+            ./cmd/gosaid
+
+      - name: Import macOS signing certificate
+        if: matrix.target.os == 'darwin'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.MACOS_CERT_PASSWORD }}
+          keychain-password: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+
+      - name: Sign + notarize macOS binary
+        if: matrix.target.os == 'darwin' && github.event_name == 'push'
+        shell: bash
+        env:
+          MACOS_DEVELOPER_ID_APPLICATION: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: ./scripts/sign-notarize.sh out/gosaid
+
+      - name: Package
+        shell: bash
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          OS: ${{ matrix.target.os }}
+          ARCH: ${{ matrix.target.arch }}
+          EXT: ${{ matrix.target.ext }}
+        run: |
+          set -euo pipefail
+          stem="gosaid-${VERSION}-${OS}-${ARCH}"
+          mkdir -p "dist/${stem}"
+          cp "out/gosaid${EXT}" "dist/${stem}/"
+          cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
+          cp -r examples "dist/${stem}/" 2>/dev/null || true
+
+          cd dist
+          if [[ "$OS" == "windows" ]]; then
+            archive="${stem}.zip"
+            if command -v 7z >/dev/null; then
+              7z a -tzip "$archive" "$stem" >/dev/null
+            else
+              zip -r -q "$archive" "$stem"
+            fi
+          else
+            archive="${stem}.tar.gz"
+            tar -czf "$archive" "$stem"
+          fi
+
+          rm -rf "$stem"
+
+          if command -v shasum >/dev/null; then
+            shasum -a 256 "$archive" > "$archive.sha256"
+          else
+            sha256sum "$archive" > "$archive.sha256"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosaid-${{ steps.ver.outputs.version }}-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          path: dist/*
+          retention-days: 7
+
+  release:
+    name: publish release + update brew tap
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts and build checksums.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find artifacts -mindepth 2 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -exec cp {} dist/ \;
+          cd dist
+          # Single combined checksum file (overwrites the per-artifact ones in the release listing).
+          sha256sum gosaid-*.tar.gz gosaid-*.zip 2>/dev/null > checksums.txt
+          ls -la
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/gosaid-*.tar.gz
+            dist/gosaid-*.zip
+            dist/checksums.txt
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+      - name: Update Homebrew tap
+        shell: bash
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          ARTIFACTS_DIR: ${{ github.workspace }}/dist
+          TAP_REPO: dmtrkzntsv/homebrew-tap
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./scripts/update-brew-formula.sh
