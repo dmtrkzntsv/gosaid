@@ -1,0 +1,16 @@
+# binary
+/gosaid
+/gosaid.exe
+/assets/
+
+# go
+*.test
+*.out
+/vendor/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

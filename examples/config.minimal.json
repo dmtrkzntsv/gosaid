@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "drivers": [
+    {
+      "driver": "openai_compatible",
+      "endpoints": [
+        {
+          "id": "groq",
+          "config": {
+            "api_base": "https://api.groq.com/openai/v1",
+            "api_key": "REPLACE_WITH_YOUR_KEY"
+          }
+        }
+      ]
+    }
+  ],
+  "hotkeys": {
+    "ctrl+alt+space": {
+      "mode": "hold",
+      "transcribe": { "model": "groq:whisper-large-v3" }
+    }
+  },
+  "toggle_max_seconds": 60,
+  "injection_mode": "paste",
+  "sound_feedback": true,
+  "log_level": "info"
+}

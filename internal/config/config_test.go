@@ -1,0 +1,157 @@
+package config
+
+import (
+	"path/filepath"
+	"testing"
+)
+
+func validCfg() *Config {
+	c := Default()
+	c.Drivers[0].Endpoints[0].Config.APIKey = "sk-test"
+	return c
+}
+
+func TestDefaultStructure(t *testing.T) {
+	c := Default()
+	if c.Version != 1 {
+		t.Fatalf("version = %d, want 1", c.Version)
+	}
+	if len(c.Drivers) != 1 {
+		t.Fatalf("drivers = %d, want 1", len(c.Drivers))
+	}
+	if _, ok := c.Hotkeys["ctrl+alt+space"]; !ok {
+		t.Fatal("default ctrl+alt+space hotkey missing")
+	}
+}
+
+func TestValidate_MissingAPIKeyFails(t *testing.T) {
+	c := Default() // key is empty by design
+	if err := Validate(c); err == nil {
+		t.Fatal("expected validation error for empty api_key")
+	}
+}
+
+func TestValidate_Valid(t *testing.T) {
+	if err := Validate(validCfg()); err != nil {
+		t.Fatalf("valid config rejected: %v", err)
+	}
+}
+
+func TestValidate_UnknownDriver(t *testing.T) {
+	c := validCfg()
+	c.Drivers[0].Driver = "nope"
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for unknown driver")
+	}
+}
+
+func TestValidate_DuplicateEndpointID(t *testing.T) {
+	c := validCfg()
+	c.Drivers[0].Endpoints = append(c.Drivers[0].Endpoints, Endpoint{
+		ID:     "groq",
+		Config: OpenAICompatibleConfig{APIBase: "x", APIKey: "y"},
+	})
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for duplicate endpoint id")
+	}
+}
+
+func TestValidate_HotkeyModelRefUnknownEndpoint(t *testing.T) {
+	c := validCfg()
+	c.Hotkeys["ctrl+alt+space"] = Hotkey{
+		Mode:       ModeHold,
+		Transcribe: TranscribeStage{Model: "ghost:whisper"},
+	}
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for model referencing unknown endpoint")
+	}
+}
+
+func TestValidate_TranscribeOutputLanguageMustBeEnglish(t *testing.T) {
+	c := validCfg()
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Transcribe.OutputLanguage = "fr"
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error when transcribe.output_language != 'en'")
+	}
+}
+
+func TestValidate_TranscribeInputLanguage(t *testing.T) {
+	c := validCfg()
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Transcribe.InputLanguage = "ru"
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err != nil {
+		t.Fatalf("valid input_language 'ru' rejected: %v", err)
+	}
+
+	hk.Transcribe.InputLanguage = "xx"
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for unknown input_language 'xx'")
+	}
+}
+
+func TestValidate_EnhanceRequiresPrompt(t *testing.T) {
+	c := validCfg()
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Enhance = &EnhanceStage{Model: "groq:whisper-large-v3", Prompt: "  "}
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for empty enhance.prompt")
+	}
+}
+
+func TestValidate_UnknownLanguageInReplacements(t *testing.T) {
+	c := validCfg()
+	c.Replacements = map[string]map[string]string{"xx": {"a": "b"}}
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for unknown language key in replacements")
+	}
+}
+
+func TestValidate_InvalidCombo(t *testing.T) {
+	c := validCfg()
+	c.Hotkeys = map[string]Hotkey{
+		"space": c.Hotkeys["ctrl+alt+space"], // single-part combo
+	}
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for combo with no modifier")
+	}
+}
+
+func TestValidate_ToggleMaxSecondsPositive(t *testing.T) {
+	c := validCfg()
+	c.ToggleMaxSeconds = 0
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for zero toggle_max_seconds")
+	}
+}
+
+func TestLoadSaveRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.json")
+
+	// Missing file: should write default.
+	c1, err := Load(p)
+	if err != nil {
+		t.Fatalf("initial load: %v", err)
+	}
+	if c1.Version != 1 {
+		t.Fatalf("default version = %d", c1.Version)
+	}
+
+	// Modify and save.
+	c1.LogLevel = "debug"
+	if err := Save(p, c1); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	c2, err := Load(p)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if c2.LogLevel != "debug" {
+		t.Fatalf("round-trip lost log_level, got %q", c2.LogLevel)
+	}
+}

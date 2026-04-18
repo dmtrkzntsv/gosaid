@@ -1,0 +1,11 @@
+[Unit]
+Description=gosaid push-to-talk voice dictation
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/gosaid
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
