@@ -11,7 +11,7 @@ import (
 	"golang.design/x/hotkey/mainthread"
 )
 
-const version = "0.0.1-dev"
+var version = "dev"
 
 func main() {
 	args := os.Args[1:]

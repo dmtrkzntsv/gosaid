@@ -16,9 +16,84 @@ Cloud-only transcription via any OpenAI-compatible API: Groq, OpenAI, OpenRouter
 
 ## Install
 
-Prebuilt binaries: see [releases](https://github.com/dmtrkzntsv/gosaid/releases).
+### Recommended: Homebrew (macOS & Linux)
 
-From source (Go 1.25+):
+```
+brew install dmtrkzntsv/tap/gosaid
+gosaid config                  # paste your API key, save
+brew services start gosaid     # runs in background, auto-starts at login
+```
+
+Upgrade later with `brew upgrade gosaid`. Stop with `brew services stop gosaid`.
+
+**macOS:** the binary is signed and notarized — no Gatekeeper warnings. On first hotkey press macOS prompts for **Accessibility**; on first record it prompts for **Microphone**. Grant both in System Settings → Privacy & Security.
+
+**Linux:** install a keystroke-injection tool (`wtype` for Wayland, `xdotool` for X11, `ydotool` for either): `sudo apt install wtype` or `sudo pacman -S wtype`.
+
+### Manual download (any OS, any arch)
+
+Grab a prebuilt binary from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest).
+
+#### macOS (arm64 / amd64)
+```
+tar -xzf gosaid-<version>-darwin-arm64.tar.gz   # or -amd64
+sudo mv gosaid-<version>-darwin-arm64/gosaid /usr/local/bin/
+gosaid version                 # signed + notarized → no Gatekeeper warning
+gosaid config
+gosaid                         # foreground; Ctrl+C to stop
+```
+
+To run in the background and auto-start at login:
+```
+mkdir -p ~/Library/LaunchAgents
+curl -fsSL https://raw.githubusercontent.com/dmtrkzntsv/gosaid/main/examples/service/dev.gosaid.plist \
+  -o ~/Library/LaunchAgents/dev.gosaid.plist
+launchctl load -w ~/Library/LaunchAgents/dev.gosaid.plist
+```
+Stop: `launchctl unload ~/Library/LaunchAgents/dev.gosaid.plist`. Logs: `tail -f /tmp/gosaid.err`.
+
+#### Linux (amd64 / arm64)
+```
+tar -xzf gosaid-<version>-linux-amd64.tar.gz
+sudo mv gosaid-<version>-linux-amd64/gosaid /usr/local/bin/
+sudo apt install wtype         # or xdotool / ydotool
+gosaid config
+gosaid                         # foreground
+```
+
+Background + autostart (systemd user unit):
+```
+mkdir -p ~/.config/systemd/user
+curl -fsSL https://raw.githubusercontent.com/dmtrkzntsv/gosaid/main/examples/service/gosaid.service \
+  -o ~/.config/systemd/user/gosaid.service
+systemctl --user daemon-reload
+systemctl --user enable --now gosaid
+loginctl enable-linger "$USER"   # optional: keep running when logged out
+```
+Status: `systemctl --user status gosaid`. Logs: `journalctl --user -u gosaid -f`.
+
+#### Windows (amd64)
+1. Extract `gosaid-<version>-windows-amd64.zip`.
+2. Move `gosaid.exe` to a folder on your `PATH` (e.g. `C:\Users\<you>\bin\`, then add it via System Properties → Environment Variables).
+3. SmartScreen will warn "Windows protected your PC" on first run — click **More info → Run anyway**. (The Windows binary is unsigned in v1.)
+4. Configure + foreground: `gosaid config` then `gosaid`.
+
+Background + autostart:
+1. Press `Win+R`, type `shell:startup`, press Enter.
+2. Right-click → **New → Shortcut**.
+3. Location: `cmd.exe /c start "" /min "C:\Users\<you>\bin\gosaid.exe"`.
+4. Name it **gosaid**. It will start every login. Delete the shortcut to disable.
+
+To stop: `Get-Process gosaid | Stop-Process`.
+
+### Verify the download (optional)
+```
+shasum -a 256 gosaid-<version>-*.tar.gz                          # macOS/Linux
+certutil -hashfile gosaid-<version>-windows-amd64.zip SHA256     # Windows
+```
+Compare to `checksums.txt` in the release.
+
+### From source (Go 1.25+)
 ```
 git clone https://github.com/dmtrkzntsv/gosaid
 cd gosaid
