@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 	"github.com/dmtrkzntsv/gosaid/internal/drivers"
@@ -25,6 +26,7 @@ type Pipeline struct {
 	Injector   inject.Injector
 	Config     *config.Config
 	SampleRate int
+	Log        *slog.Logger
 }
 
 // Run executes the full pipeline for one hotkey trigger. Called after the
@@ -42,6 +44,8 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 		p.Core.Transition(StateError, err)
 		return err
 	}
+	p.Log.Info("transcription processed", "chars", len(text1), "lang", detectedLang)
+	p.Log.Debug("transcription", "text", text1, "lang", detectedLang)
 
 	p.Core.Transition(StateProcessing, nil)
 
@@ -130,7 +134,12 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 	if err != nil {
 		return "", err
 	}
-	return drv.Chat(ctx, model, system, input)
+	out, err := drv.Chat(ctx, model, system, input)
+	if err != nil {
+		return "", err
+	}
+	p.Log.Debug("translation", "text", out, "source", normalizeLang(detected), "target", stage.OutputLanguage)
+	return out, nil
 }
 
 func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.EnhanceStage) (string, error) {
@@ -148,7 +157,12 @@ func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.Enha
 	if err != nil {
 		return "", err
 	}
-	return drv.Chat(ctx, model, system, input)
+	out, err := drv.Chat(ctx, model, system, input)
+	if err != nil {
+		return "", err
+	}
+	p.Log.Debug("enhancement", "text", out)
+	return out, nil
 }
 
 func (p *Pipeline) applyReplacements(s, lang string) string {

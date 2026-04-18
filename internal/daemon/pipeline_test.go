@@ -3,6 +3,8 @@ package daemon
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -62,6 +64,7 @@ func newPipeline(t *testing.T, drv drivers.Driver, cfg *config.Config, sink *str
 		Injector:   inject.Stub{Writer: func(s string) { sink.WriteString(s) }},
 		Config:     cfg,
 		SampleRate: 16000,
+		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 

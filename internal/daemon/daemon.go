@@ -87,6 +87,7 @@ func Run(injector inject.Injector) error {
 		Injector:   injector,
 		Config:     cfg,
 		SampleRate: audio.CaptureSampleRate,
+		Log:        log,
 	}
 
 	mgr := hotkey.NewManager(time.Duration(cfg.ToggleMaxSeconds) * time.Second)
