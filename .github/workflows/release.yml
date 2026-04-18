@@ -48,6 +48,12 @@ jobs:
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "ref_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
+      - name: Install Linux build dependencies
+        if: matrix.target.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
+
       - name: Build
         shell: bash
         env:
