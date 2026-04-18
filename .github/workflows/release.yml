@@ -2,30 +2,138 @@ name: release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (without leading v). Used as the tag name when publishing.'
-        required: true
-        default: '0.0.0-dryrun'
+        description: 'Version (with or without leading v). Leave blank to auto-bump patch from latest release tag.'
+        required: false
+        default: ''
       publish:
         description: 'Sign + notarize, create tag, publish GitHub Release, update brew tap.'
         type: boolean
         required: true
-        default: false
+        default: true
 
 permissions:
   contents: write
 
 jobs:
+  resolve:
+    name: resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      tag: ${{ steps.compute.outputs.tag }}
+      release: ${{ steps.compute.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version + release flag
+        id: compute
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+          HEAD_MSG: ${{ github.event.head_commit.message }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Strip ALL leading 'v' chars so 'vv0.1.0' (typo) and 'v0.1.0' both normalize to '0.1.0'.
+          strip_v() {
+            local s="$1"
+            while [[ "$s" == v* ]]; do s="${s#v}"; done
+            echo "$s"
+          }
+
+          # Strict semver-ish: X.Y.Z optionally followed by -prerelease and/or +build.
+          validate() {
+            if [[ ! "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Invalid version: '$1' (must be X.Y.Z[-suffix][+build])" >&2
+              exit 1
+            fi
+          }
+
+          # Latest published release tag from GitHub (vX.Y.Z form). Empty if none.
+          last_tag() {
+            gh release view --repo "${GITHUB_REPOSITORY}" --json tagName -q .tagName 2>/dev/null \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true
+          }
+
+          bump_patch() {
+            local base="$1"
+            IFS=. read -r maj min pat <<<"$base"
+            echo "${maj}.${min}.$((pat + 1))"
+          }
+
+          release=false
+          version=""
+
+          case "$EVENT_NAME" in
+            push)
+              if [[ "$REF_TYPE" == "tag" ]]; then
+                version="$(strip_v "$REF_NAME")"
+                release=true
+              else
+                # Push to main: auto-bump patch and publish, unless skip marker present.
+                if [[ "$HEAD_MSG" == *"[skip release]"* || "$HEAD_MSG" == *"[no release]"* ]]; then
+                  echo "Skip marker found in head commit — building without releasing."
+                  base="$(last_tag)"
+                  base="${base#v}"
+                  version="${base:-0.0.0}-dev.${GITHUB_SHA::7}"
+                  release=false
+                else
+                  base="$(last_tag)"
+                  if [[ -z "$base" ]]; then
+                    version="0.1.0"
+                  else
+                    version="$(bump_patch "${base#v}")"
+                  fi
+                  release=true
+                fi
+              fi
+              ;;
+            workflow_dispatch)
+              if [[ -z "$INPUT_VERSION" ]]; then
+                base="$(last_tag)"
+                if [[ -z "$base" ]]; then
+                  version="0.1.0"
+                else
+                  version="$(bump_patch "${base#v}")"
+                fi
+              else
+                version="$(strip_v "$INPUT_VERSION")"
+              fi
+              release="$INPUT_PUBLISH"
+              ;;
+            *)
+              echo "Unsupported event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          validate "$version"
+
+          tag="v${version}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "Resolved version=$version tag=$tag release=$release"
+
   build:
     name: build ${{ matrix.target.os }}/${{ matrix.target.arch }}
+    needs: resolve
     runs-on: ${{ matrix.target.runner }}
-    outputs:
-      version: ${{ steps.ver.outputs.version }}
-      release: ${{ steps.ver.outputs.release }}
     strategy:
       fail-fast: false
       matrix:
@@ -44,22 +152,6 @@ jobs:
           go-version: '1.25'
           cache: true
 
-      - name: Resolve version
-        id: ver
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            v="${GITHUB_REF_NAME#v}"
-            release=true
-          else
-            v="${{ inputs.version }}"
-            release="${{ inputs.publish }}"
-          fi
-          echo "version=$v" >> "$GITHUB_OUTPUT"
-          echo "ref_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "release=$release" >> "$GITHUB_OUTPUT"
-          echo "Resolved version=$v release=$release"
-
       - name: Install Linux build dependencies
         if: matrix.target.os == 'linux'
         run: |
@@ -72,11 +164,12 @@ jobs:
           GOOS: ${{ matrix.target.os }}
           GOARCH: ${{ matrix.target.arch }}
           CGO_ENABLED: '1'
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           mkdir -p out
           go build \
             -trimpath \
-            -ldflags "-s -w -X main.version=${{ steps.ver.outputs.version }}" \
+            -ldflags "-s -w -X main.version=${VERSION}" \
             -o "out/gosaid${{ matrix.target.ext }}" \
             ./cmd/gosaid
 
@@ -89,7 +182,7 @@ jobs:
           keychain-password: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
 
       - name: Sign + notarize macOS binary
-        if: matrix.target.os == 'darwin' && steps.ver.outputs.release == 'true'
+        if: matrix.target.os == 'darwin' && needs.resolve.outputs.release == 'true'
         shell: bash
         env:
           MACOS_DEVELOPER_ID_APPLICATION: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION }}
@@ -101,7 +194,7 @@ jobs:
       - name: Package
         shell: bash
         env:
-          VERSION: ${{ steps.ver.outputs.version }}
+          VERSION: ${{ needs.resolve.outputs.version }}
           OS: ${{ matrix.target.os }}
           ARCH: ${{ matrix.target.arch }}
           EXT: ${{ matrix.target.ext }}
@@ -137,23 +230,23 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gosaid-${{ steps.ver.outputs.version }}-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          name: gosaid-${{ needs.resolve.outputs.version }}-${{ matrix.target.os }}-${{ matrix.target.arch }}
           path: dist/*
           retention-days: 7
 
   release:
     name: publish release + update brew tap
-    needs: build
-    if: needs.build.outputs.release == 'true'
+    needs: [resolve, build]
+    if: needs.resolve.outputs.release == 'true'
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ needs.build.outputs.version }}
-      TAG_NAME: v${{ needs.build.outputs.version }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG_NAME: ${{ needs.resolve.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create and push tag (manual dispatch)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Create and push tag (non-tag refs)
+        if: github.ref_type != 'tag'
         shell: bash
         run: |
           set -euo pipefail
