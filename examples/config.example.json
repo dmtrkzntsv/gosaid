@@ -5,16 +5,9 @@
       "driver": "openai_compatible",
       "endpoints": [
         {
-          "id": "groq",
+          "id": "openai",
           "config": {
-            "api_base": "https://api.groq.com/openai/v1",
-            "api_key": "REPLACE_ME"
-          }
-        },
-        {
-          "id": "openrouter",
-          "config": {
-            "api_base": "https://openrouter.ai/api/v1",
+            "api_base": "https://api.openai.com/v1",
             "api_key": "REPLACE_ME"
           }
         }
@@ -22,8 +15,7 @@
     }
   ],
   "vocabulary": {
-    "en": ["Kubernetes", "Goroutine", "Anthropic", "Tailscale"],
-    "ru": ["Санкт-Петербург"]
+    "en": ["Kubernetes", "Goroutine", "Anthropic", "Tailscale"]
   },
   "replacements": {
     "en": {
@@ -34,31 +26,37 @@
   "hotkeys": {
     "ctrl+alt+space": {
       "mode": "hold",
-      "transcribe": { "model": "groq:whisper-large-v3", "input_language": "en" }
+      "transcribe": {
+        "model": "openai:whisper-1",
+        "input_language": "en"
+      }
     },
     "ctrl+alt+d": {
       "mode": "toggle",
-      "transcribe": { "model": "groq:whisper-large-v3" }
+      "transcribe": { "model": "openai:whisper-1" }
     },
     "ctrl+alt+r": {
       "mode": "hold",
-      "transcribe": { "model": "groq:whisper-large-v3", "output_language": "en" }
+      "transcribe": {
+        "model": "openai:whisper-1",
+        "output_language": "en"
+      }
     },
     "ctrl+alt+f": {
       "mode": "hold",
-      "transcribe": { "model": "groq:whisper-large-v3" },
+      "transcribe": { "model": "openai:whisper-1" },
       "translate": {
         "output_language": "fr",
-        "model": "openrouter:openai/gpt-4o-mini",
+        "model": "openai:gpt-5.4-nano",
         "prompt": "Use formal register. This is technical content about software architecture."
       }
     },
     "ctrl+alt+e": {
       "mode": "hold",
-      "transcribe": { "model": "groq:whisper-large-v3" },
+      "transcribe": { "model": "openai:whisper-1" },
       "enhance": {
         "prompt": "Format as a professional email with an appropriate greeting and sign-off.",
-        "model": "openrouter:anthropic/claude-3.5-haiku"
+        "model": "openai:gpt-5.4-nano"
       }
     }
   },
