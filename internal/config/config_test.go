@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -155,3 +157,23 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 		t.Fatalf("round-trip lost log_level, got %q", c2.LogLevel)
 	}
 }
+
+// When the config file is missing, Load must write the embedded example
+// (not the minimal programmatic Default) so users get a documented starting
+// point with multiple hotkey examples.
+func TestLoad_MissingWritesEmbeddedExample(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.json")
+
+	if _, err := Load(p); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	written, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("read written config: %v", err)
+	}
+	if !bytes.Equal(written, exampleConfig) {
+		t.Fatalf("written config does not match embedded example")
+	}
+}
+

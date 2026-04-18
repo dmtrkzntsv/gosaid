@@ -126,7 +126,7 @@ Platform paths (resolved via `os.UserConfigDir()`):
 | Linux | `$XDG_CONFIG_HOME/gosaid/config.json` or `~/.config/gosaid/config.json` |
 | Windows | `%AppData%\gosaid\config.json` |
 
-See [`examples/config.minimal.json`](examples/config.minimal.json) and [`examples/config.full.json`](examples/config.full.json) for complete samples.
+See [`internal/config/config.example.json`](internal/config/config.example.json) for a complete annotated sample.
 
 ### Field reference
 
