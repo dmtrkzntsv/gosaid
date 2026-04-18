@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to use for dry-run builds (no release published)'
-        required: false
+        description: 'Version (without leading v). Used as the tag name when publishing.'
+        required: true
         default: '0.0.0-dryrun'
+      publish:
+        description: 'Sign + notarize, create tag, publish GitHub Release, update brew tap.'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: write
@@ -18,6 +23,9 @@ jobs:
   build:
     name: build ${{ matrix.target.os }}/${{ matrix.target.arch }}
     runs-on: ${{ matrix.target.runner }}
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      release: ${{ steps.ver.outputs.release }}
     strategy:
       fail-fast: false
       matrix:
@@ -42,11 +50,15 @@ jobs:
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             v="${GITHUB_REF_NAME#v}"
+            release=true
           else
             v="${{ inputs.version }}"
+            release="${{ inputs.publish }}"
           fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "ref_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "Resolved version=$v release=$release"
 
       - name: Install Linux build dependencies
         if: matrix.target.os == 'linux'
@@ -77,7 +89,7 @@ jobs:
           keychain-password: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
 
       - name: Sign + notarize macOS binary
-        if: matrix.target.os == 'darwin' && github.event_name == 'push'
+        if: matrix.target.os == 'darwin' && steps.ver.outputs.release == 'true'
         shell: bash
         env:
           MACOS_DEVELOPER_ID_APPLICATION: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION }}
@@ -132,15 +144,27 @@ jobs:
   release:
     name: publish release + update brew tap
     needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: needs.build.outputs.release == 'true'
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      TAG_NAME: v${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve version
-        id: ver
+      - name: Create and push tag (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --tags --exit-code origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Tag ${TAG_NAME} already exists on origin — refusing to overwrite." >&2
+            exit 1
+          fi
+          git tag "${TAG_NAME}"
+          git push origin "${TAG_NAME}"
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -161,6 +185,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG_NAME }}
           files: |
             dist/gosaid-*.tar.gz
             dist/gosaid-*.zip
@@ -171,7 +196,6 @@ jobs:
       - name: Update Homebrew tap
         shell: bash
         env:
-          VERSION: ${{ steps.ver.outputs.version }}
           ARTIFACTS_DIR: ${{ github.workspace }}/dist
           TAP_REPO: dmtrkzntsv/homebrew-tap
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
