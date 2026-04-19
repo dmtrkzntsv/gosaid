@@ -2,9 +2,9 @@
 
 Headless, cross-platform push-to-talk voice dictation daemon. Press a hotkey, speak, release — text appears at the cursor.
 
-**Dictate in your native language, get text in another one.** Set up a hotkey that transcribes your speech and translates it on the fly — so you can speak Russian and insert English (or any pair) straight into the app under your cursor.
+**Dictate in your native language, get text in another one.** Set up a hotkey that transcribes your speech and translates it on the fly — so you can speak your language and insert English (or any other) straight into the app under your cursor.
 
-Transcription and translation run against any OpenAI-compatible cloud API: OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar. **Local / on-device models are not supported yet** — an internet connection and an API key are required.
+Transcription and translation run against any OpenAI-compatible cloud API: OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar.
 
 ## Install
 
@@ -101,7 +101,7 @@ A hotkey runs up to three stages in order. `transcribe` is required; `translate`
 
 `input_language` is an optional ISO 639-1 hint for Whisper. `output_language: "en"` activates Whisper's native English fast-path; for other targets, chain a `translate` stage.
 
-**Translate** — render the transcript in another language via an LLM.
+**Translate** — render the transcript in another language via an LLM. Prompt is optional.
 
 ```json
 "translate": {
@@ -111,7 +111,7 @@ A hotkey runs up to three stages in order. `transcribe` is required; `translate`
 }
 ```
 
-**Enhance** — reshape the text with an LLM (format as email, clean up filler words, etc.).
+**Enhance** — reshape the text with an LLM (format as email, clean up filler words, etc.). Prompt is optional.
 
 ```json
 "enhance": {
