@@ -44,8 +44,7 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 		p.Core.Transition(StateError, err)
 		return err
 	}
-	p.Log.Info("transcription processed", "chars", len(text1), "lang", detectedLang)
-	p.Log.Debug("transcription", "text", text1, "lang", detectedLang)
+	p.Log.Debug("transcription processed", "chars", len(text1), "text", text1, "lang", detectedLang)
 
 	p.Core.Transition(StateProcessing, nil)
 
