@@ -1,4 +1,4 @@
-# gosaid
+# GoSaid
 
 Headless, cross-platform push-to-talk voice dictation daemon. Press a hotkey, speak, release — text appears at the cursor.
 
