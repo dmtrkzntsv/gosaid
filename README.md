@@ -4,6 +4,8 @@
 
 Designed to stay **lightweight with as few dependencies as possible**: transcription and translation run against any OpenAI-compatible cloud API (OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar), so the daemon itself is a small static binary that ships as a single file, starts instantly, and idles with a negligible footprint — no bundled models, no UI, no background services beyond the one process.
 
+> **Platform status:** Actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
+
 ## Install
 
 ### macOS & Linux (Homebrew)
