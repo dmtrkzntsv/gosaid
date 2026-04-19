@@ -101,7 +101,7 @@ A hotkey runs up to three stages in order. `transcribe` is required; `translate`
 
 `input_language` is an optional ISO 639-1 hint for Whisper. `output_language: "en"` activates Whisper's native English fast-path; for other targets, chain a `translate` stage.
 
-**Translate** — render the transcript in another language via an LLM. Prompt is optional.
+**Translate** — render the transcript in another language via an LLM. Prompt is optional; when omitted, translations stick to the source's exact wording and style.
 
 ```json
 "translate": {
@@ -111,7 +111,7 @@ A hotkey runs up to three stages in order. `transcribe` is required; `translate`
 }
 ```
 
-**Enhance** — reshape the text with an LLM (format as email, clean up filler words, etc.). Prompt is optional.
+**Enhance** — reshape the text with an LLM (format as email, clean up filler words, etc.). Prompt is optional; when omitted, the model only strips speech disfluencies ("um", "uh", "mm", false starts, repeats) without changing meaning or style.
 
 ```json
 "enhance": {

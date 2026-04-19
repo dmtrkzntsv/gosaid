@@ -95,13 +95,13 @@ func TestValidate_TranscribeInputLanguage(t *testing.T) {
 	}
 }
 
-func TestValidate_EnhanceRequiresPrompt(t *testing.T) {
+func TestValidate_EnhancePromptOptional(t *testing.T) {
 	c := validCfg()
 	hk := c.Hotkeys["ctrl+alt+space"]
 	hk.Enhance = &EnhanceStage{Model: "groq:whisper-large-v3", Prompt: "  "}
 	c.Hotkeys["ctrl+alt+space"] = hk
-	if err := Validate(c); err == nil {
-		t.Fatal("expected error for empty enhance.prompt")
+	if err := Validate(c); err != nil {
+		t.Fatalf("empty enhance.prompt should be allowed, got: %v", err)
 	}
 }
 

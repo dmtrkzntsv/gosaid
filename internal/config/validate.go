@@ -112,9 +112,6 @@ func validateHotkey(hk Hotkey, endpoints map[string]struct{}) error {
 		}
 	}
 	if hk.Enhance != nil {
-		if strings.TrimSpace(hk.Enhance.Prompt) == "" {
-			return fmt.Errorf("enhance.prompt is required when enhance stage is present")
-		}
 		if hk.Enhance.Model == "" {
 			return fmt.Errorf("enhance.model is required")
 		}

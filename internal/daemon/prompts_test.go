@@ -32,8 +32,28 @@ func TestRenderTranslate_DefaultInstructionWhenEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "Translate faithfully") {
+	if !strings.Contains(out, defaultTranslateInstruction) {
 		t.Errorf("default instruction missing:\n%s", out)
+	}
+}
+
+func TestRenderEnhance_DefaultInstructionWhenEmpty(t *testing.T) {
+	out, err := RenderEnhance(EnhanceData{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, defaultEnhanceInstruction) {
+		t.Errorf("default enhance instruction missing:\n%s", out)
+	}
+}
+
+func TestRenderEnhance_DefaultInstructionWhenBlank(t *testing.T) {
+	out, err := RenderEnhance(EnhanceData{UserInstructions: "   "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, defaultEnhanceInstruction) {
+		t.Errorf("default enhance instruction missing for whitespace prompt:\n%s", out)
 	}
 }
 

@@ -47,8 +47,23 @@
       "transcribe": { "model": "openai:whisper-1" },
       "translate": {
         "output_language": "fr",
+        "model": "openai:gpt-5.4-nano"
+      }
+    },
+    "ctrl+alt+t": {
+      "mode": "hold",
+      "transcribe": { "model": "openai:whisper-1" },
+      "translate": {
+        "output_language": "fr",
         "model": "openai:gpt-5.4-nano",
         "prompt": "Use formal register. This is technical content about software architecture."
+      }
+    },
+    "ctrl+alt+c": {
+      "mode": "hold",
+      "transcribe": { "model": "openai:whisper-1" },
+      "enhance": {
+        "model": "openai:gpt-5.4-nano"
       }
     },
     "ctrl+alt+e": {

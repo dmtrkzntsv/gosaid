@@ -54,7 +54,7 @@ type TranslateStage struct {
 }
 
 type EnhanceStage struct {
-	Prompt string `json:"prompt"`
+	Prompt string `json:"prompt,omitempty"`
 	Model  string `json:"model"`
 }
 
