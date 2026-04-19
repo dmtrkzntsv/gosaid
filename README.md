@@ -4,7 +4,7 @@ Headless, cross-platform push-to-talk voice dictation daemon. Press a hotkey, sp
 
 **Dictate in your native language, get text in another one.** Set up a hotkey that transcribes your speech and translates it on the fly — so you can speak your language and insert English (or any other) straight into the app under your cursor.
 
-Transcription and translation run against any OpenAI-compatible cloud API: OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar.
+Designed to stay **lightweight with as few dependencies as possible**: transcription and translation run against any OpenAI-compatible cloud API (OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar), so the daemon itself is a small static binary that ships as a single file, starts instantly, and idles with a negligible footprint — no bundled models, no Electron, no background services beyond the one process.
 
 ## Install
 
