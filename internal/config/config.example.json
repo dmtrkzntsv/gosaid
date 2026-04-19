@@ -24,53 +24,37 @@
     }
   },
   "hotkeys": {
-    "ctrl+alt+space": {
+    "option+left": {
       "mode": "hold",
       "transcribe": {
         "model": "openai:whisper-1",
-        "input_language": "en"
+        "output_language": ""
       }
     },
-    "ctrl+alt+d": {
-      "mode": "toggle",
-      "transcribe": { "model": "openai:whisper-1" }
-    },
-    "ctrl+alt+r": {
+    "option+down": {
       "mode": "hold",
       "transcribe": {
         "model": "openai:whisper-1",
-        "output_language": "en"
-      }
-    },
-    "ctrl+alt+f": {
-      "mode": "hold",
-      "transcribe": { "model": "openai:whisper-1" },
-      "translate": {
-        "output_language": "fr",
+        "output_language": ""
+      },
+      "enhance": {
+        "prompt": "",
         "model": "openai:gpt-5.4-nano"
       }
     },
-    "ctrl+alt+t": {
+    "option+right": {
       "mode": "hold",
-      "transcribe": { "model": "openai:whisper-1" },
+      "transcribe": {
+        "model": "openai:whisper-1",
+        "output_language": ""
+      },
       "translate": {
-        "output_language": "fr",
+        "output_language": "en",
         "model": "openai:gpt-5.4-nano",
-        "prompt": "Use formal register. This is technical content about software architecture."
-      }
-    },
-    "ctrl+alt+c": {
-      "mode": "hold",
-      "transcribe": { "model": "openai:whisper-1" },
+        "prompt": ""
+      },
       "enhance": {
-        "model": "openai:gpt-5.4-nano"
-      }
-    },
-    "ctrl+alt+e": {
-      "mode": "hold",
-      "transcribe": { "model": "openai:whisper-1" },
-      "enhance": {
-        "prompt": "Format as a professional email with an appropriate greeting and sign-off.",
+        "prompt": "",
         "model": "openai:gpt-5.4-nano"
       }
     }
