@@ -6,6 +6,10 @@ on:
       - main
     tags:
       - 'v*'
+    paths-ignore:
+      - 'README.md'
+      - '**/*.md'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       version:
