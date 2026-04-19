@@ -93,7 +93,7 @@ A hotkey runs up to three stages in order. `transcribe` is required; `translate`
 
 ```json
 "transcribe": {
-  "model": "groq:whisper-large-v3",
+  "model": "openai:whisper-1",
   "input_language": "en",
   "output_language": "en"
 }
