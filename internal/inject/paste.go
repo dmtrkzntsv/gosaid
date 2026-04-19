@@ -8,10 +8,15 @@ import (
 	"golang.design/x/clipboard"
 )
 
-// PasteInjector writes the text to the system clipboard and synthesizes a
-// paste keystroke on the platform. If the keystroke synthesis fails, the
-// text is still in the clipboard and InjectionFailedError signals that
+// PasteInjector saves the current clipboard, writes the text, synthesizes a
+// paste keystroke, and restores the previous clipboard. If synthesis fails
+// the text is left in the clipboard and InjectionFailedError signals that
 // the user can recover with a manual Cmd/Ctrl+V.
+//
+// Non-text clipboard contents (images, files) are not preserved: Read with
+// FmtText returns nil for them, and restoring nil would clobber the original
+// data, so we skip the write in that case and leave the transcript behind
+// rather than destroy the image.
 type PasteInjector struct {
 	inited bool
 }
@@ -25,22 +30,26 @@ func NewPasteInjector() (*PasteInjector, error) {
 	return &PasteInjector{inited: true}, nil
 }
 
-// Inject puts text on the clipboard and attempts to fire the platform paste
-// keystroke. Does not restore the previous clipboard content.
+// Inject temporarily replaces the clipboard with text to drive a synthesized
+// paste, then restores the previous text contents.
 func (p *PasteInjector) Inject(ctx context.Context, text string) error {
 	if text == "" {
 		return nil
 	}
+	prev := clipboard.Read(clipboard.FmtText)
 	clipboard.Write(clipboard.FmtText, []byte(text))
 
 	if err := synthesizePaste(); err != nil {
 		return &InjectionFailedError{TextInClipboard: true, Underlying: err}
 	}
-	// Give the target app time to consume the paste before we return and
-	// potentially re-enter the state machine.
+	// Give the target app time to consume the paste before we restore the
+	// clipboard — otherwise slow/async apps paste the restored value.
 	select {
 	case <-time.After(100 * time.Millisecond):
 	case <-ctx.Done():
+	}
+	if prev != nil {
+		clipboard.Write(clipboard.FmtText, prev)
 	}
 	return nil
 }
