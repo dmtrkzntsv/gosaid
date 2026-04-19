@@ -32,8 +32,8 @@ func TestRenderTranslate_DefaultInstructionWhenEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, defaultTranslateInstruction) {
-		t.Errorf("default instruction missing:\n%s", out)
+	if !strings.Contains(out, "Match the exact wording") {
+		t.Errorf("default translate instruction missing:\n%s", out)
 	}
 }
 
@@ -42,7 +42,7 @@ func TestRenderEnhance_DefaultInstructionWhenEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, defaultEnhanceInstruction) {
+	if !strings.Contains(out, "speech disfluencies") {
 		t.Errorf("default enhance instruction missing:\n%s", out)
 	}
 }
@@ -52,7 +52,7 @@ func TestRenderEnhance_DefaultInstructionWhenBlank(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, defaultEnhanceInstruction) {
+	if !strings.Contains(out, "speech disfluencies") {
 		t.Errorf("default enhance instruction missing for whitespace prompt:\n%s", out)
 	}
 }
