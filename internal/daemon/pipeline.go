@@ -50,8 +50,8 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 	var reshaped string
 	translateLang := detectedLang
 	switch {
-	case hk.Compose != nil:
-		if hk.Enhance != nil {
+	case hk.Compose.IsEnabled():
+		if hk.Enhance.IsEnabled() {
 			p.Log.Debug("compose set: enhance stage skipped")
 		}
 		reshaped, err = p.compose(ctx, text1, hk.Compose)
@@ -60,7 +60,7 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 		// language hint so translate neither skips incorrectly nor fills the
 		// prompt with a wrong source.
 		translateLang = ""
-	case hk.Enhance != nil:
+	case hk.Enhance.IsEnabled():
 		reshaped, err = p.enhance(ctx, text1, hk.Enhance)
 	default:
 		reshaped = text1
@@ -121,7 +121,7 @@ func (p *Pipeline) transcribe(ctx context.Context, samples []float32, stage conf
 }
 
 func (p *Pipeline) translate(ctx context.Context, input, detected string, stage *config.TranslateStage) (string, error) {
-	if stage == nil {
+	if !stage.IsEnabled() {
 		return input, nil
 	}
 	detectedCode := normalizeLang(detected)
@@ -152,7 +152,7 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 }
 
 func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.EnhanceStage) (string, error) {
-	if stage == nil {
+	if !stage.IsEnabled() {
 		return input, nil
 	}
 	drv, model, err := p.resolve(stage.Model)
@@ -172,7 +172,7 @@ func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.Enha
 }
 
 func (p *Pipeline) compose(ctx context.Context, input string, stage *config.ComposeStage) (string, error) {
-	if stage == nil {
+	if !stage.IsEnabled() {
 		return input, nil
 	}
 	drv, model, err := p.resolve(stage.Model)

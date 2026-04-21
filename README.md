@@ -89,6 +89,8 @@ Bind a key combo to a recording mode and one or more pipeline stages:
 
 A hotkey runs up to three stages in order: `transcribe` → (`compose` | `enhance`) → `translate`. `transcribe` is required; the others are optional. `compose` and `enhance` are mutually exclusive — if both are set, `compose` wins and `enhance` is skipped.
 
+Each optional stage accepts an `"enable": false` field to skip it without removing the block — useful for toggling behavior during iteration. Omitting the field, or setting `"enable": true`, means the stage runs as normal. When a stage is disabled, its other fields are not validated, so you can keep a half-written block as a scaffold.
+
 **Transcribe** — speech to text.
 
 ```json
