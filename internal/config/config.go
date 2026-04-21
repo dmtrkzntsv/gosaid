@@ -60,6 +60,7 @@ type ComposeStage struct {
 }
 
 const (
+	CurrentVersion         = 2
 	DriverOpenAICompatible = "openai_compatible"
 	InjectionModePaste     = "paste"
 	DefaultToggleSeconds   = 60
@@ -69,7 +70,7 @@ const (
 // the user to fill in an API key before it will pass validation.
 func Default() *Config {
 	return &Config{
-		Version: 2,
+		Version: CurrentVersion,
 		Drivers: []Driver{{
 			Driver: DriverOpenAICompatible,
 			Endpoints: []Endpoint{{
