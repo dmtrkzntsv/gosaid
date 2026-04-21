@@ -13,6 +13,14 @@ type Config struct {
 	// language; the model is instructed to match the user's instruction
 	// language for the output.
 	UserContext string `json:"user_context,omitempty"`
+	// LicenseKey is reserved for a future licensing UI. Currently unused by
+	// the daemon.
+	LicenseKey string `json:"license_key,omitempty"`
+	// PIDFile and DaemonBinary are written by the daemon on startup as hints
+	// for external tools (e.g. the desktop UI) that need to locate the
+	// running daemon. Any user-provided value is overwritten.
+	PIDFile      string `json:"pid_file,omitempty"`
+	DaemonBinary string `json:"daemon_binary,omitempty"`
 }
 
 type Driver struct {
@@ -52,20 +60,50 @@ type TranscribeStage struct {
 }
 
 type TranslateStage struct {
+	// Enable toggles the stage without removing the section. Nil or true →
+	// stage runs when present; false → stage is skipped and its fields are
+	// not validated.
+	Enable         *bool  `json:"enable,omitempty"`
 	OutputLanguage string `json:"output_language"`
 	Model          string `json:"model"`
 }
 
 type EnhanceStage struct {
-	Model string `json:"model"`
+	// Enable toggles the stage without removing the section. Nil or true →
+	// stage runs when present; false → stage is skipped and its fields are
+	// not validated.
+	Enable *bool  `json:"enable,omitempty"`
+	Model  string `json:"model"`
 }
 
 type ComposeStage struct {
-	Model string `json:"model"`
+	// Enable toggles the stage without removing the section. Nil or true →
+	// stage runs when present; false → stage is skipped and its fields are
+	// not validated.
+	Enable *bool  `json:"enable,omitempty"`
+	Model  string `json:"model"`
 	// Instructions is appended to the compose system prompt as an additional
 	// per-hotkey directive (e.g. "always write in formal register" for a
 	// business-email hotkey). Does not replace the defaults.
 	Instructions string `json:"instructions,omitempty"`
+}
+
+// IsEnabled reports whether the stage should run. A nil receiver (absent
+// section) or an explicit false returns false; any other state returns true.
+func (s *TranslateStage) IsEnabled() bool {
+	return s != nil && (s.Enable == nil || *s.Enable)
+}
+
+// IsEnabled reports whether the stage should run. A nil receiver (absent
+// section) or an explicit false returns false; any other state returns true.
+func (s *EnhanceStage) IsEnabled() bool {
+	return s != nil && (s.Enable == nil || *s.Enable)
+}
+
+// IsEnabled reports whether the stage should run. A nil receiver (absent
+// section) or an explicit false returns false; any other state returns true.
+func (s *ComposeStage) IsEnabled() bool {
+	return s != nil && (s.Enable == nil || *s.Enable)
 }
 
 const (

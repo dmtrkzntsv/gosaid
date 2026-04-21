@@ -13,6 +13,8 @@ func validCfg() *Config {
 	return c
 }
 
+func boolPtr(b bool) *bool { return &b }
+
 func TestDefaultStructure(t *testing.T) {
 	c := Default()
 	if c.Version != 2 {
@@ -112,6 +114,36 @@ func TestValidate_ComposeUnknownEndpoint(t *testing.T) {
 	c.Hotkeys["ctrl+alt+space"] = hk
 	if err := Validate(c); err == nil {
 		t.Fatal("expected error for compose.model referencing unknown endpoint")
+	}
+}
+
+func TestValidate_DisabledComposeSkipsModelCheck(t *testing.T) {
+	c := validCfg()
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Compose = &ComposeStage{Enable: boolPtr(false)}
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err != nil {
+		t.Fatalf("disabled compose should skip model check: %v", err)
+	}
+}
+
+func TestValidate_EnabledComposeRequiresModel(t *testing.T) {
+	c := validCfg()
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Compose = &ComposeStage{Enable: boolPtr(true)}
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for explicitly enabled compose without model")
+	}
+}
+
+func TestValidate_DisabledTranslateSkipsLanguageCheck(t *testing.T) {
+	c := validCfg()
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Translate = &TranslateStage{Enable: boolPtr(false)}
+	c.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(c); err != nil {
+		t.Fatalf("disabled translate should skip field checks: %v", err)
 	}
 }
 

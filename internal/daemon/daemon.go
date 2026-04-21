@@ -55,6 +55,22 @@ func Run(injector inject.Injector) error {
 	}
 	defer func() { _ = Release(pidPath) }()
 
+	// Expose resolved paths to external tools (e.g. the desktop UI) via the
+	// config file. Write is idempotent — only touches disk when values
+	// change — and non-fatal: the daemon still runs if the write fails.
+	exe, err := os.Executable()
+	if err != nil {
+		log.Warn("resolve executable path", "err", err)
+		exe = ""
+	}
+	if cfg.PIDFile != pidPath || cfg.DaemonBinary != exe {
+		cfg.PIDFile = pidPath
+		cfg.DaemonBinary = exe
+		if err := config.Save(cfgPath, cfg); err != nil {
+			log.Warn("persist UI hint fields", "err", err)
+		}
+	}
+
 	reg, err := drivers.BuildRegistry(cfg)
 	if err != nil {
 		return err

@@ -83,7 +83,7 @@ func validateHotkey(hk Hotkey, endpoints map[string]struct{}) error {
 	if hk.Transcribe.InputLanguage != "" && !IsValidLanguage(hk.Transcribe.InputLanguage) {
 		return fmt.Errorf("transcribe.input_language: unknown language %q", hk.Transcribe.InputLanguage)
 	}
-	if hk.Translate != nil {
+	if hk.Translate.IsEnabled() {
 		if hk.Translate.OutputLanguage == "" {
 			return fmt.Errorf("translate.output_language is required")
 		}
@@ -97,7 +97,7 @@ func validateHotkey(hk Hotkey, endpoints map[string]struct{}) error {
 			return err
 		}
 	}
-	if hk.Enhance != nil {
+	if hk.Enhance.IsEnabled() {
 		if hk.Enhance.Model == "" {
 			return fmt.Errorf("enhance.model is required")
 		}
@@ -105,7 +105,7 @@ func validateHotkey(hk Hotkey, endpoints map[string]struct{}) error {
 			return err
 		}
 	}
-	if hk.Compose != nil {
+	if hk.Compose.IsEnabled() {
 		if hk.Compose.Model == "" {
 			return fmt.Errorf("compose.model is required")
 		}
