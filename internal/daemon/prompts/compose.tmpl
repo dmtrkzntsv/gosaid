@@ -6,6 +6,9 @@ Match the language of the user's instruction for the output. If the "About the u
 {{if .UserContext}}
 About the user (use for personalization — name, role, tone, sign-offs — when relevant; ignore if not applicable to the current task):
 {{.UserContext}}
+{{end}}{{if .Instructions}}
+Additional instructions for this hotkey (apply on top of the defaults above; do not override the output-format rules below):
+{{.Instructions}}
 {{end}}
 Output requirements:
 - Output only the finished artifact, nothing else.

@@ -318,6 +318,40 @@ func TestPipeline_ComposeUsesUserContext(t *testing.T) {
 	}
 }
 
+func TestPipeline_ComposeUsesStageInstructions(t *testing.T) {
+	var sink strings.Builder
+	var seenSystem string
+	drv := &mockDriver{
+		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "tell Bob the meeting is off", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, system, _ string) (string, error) {
+			seenSystem = system
+			return "Dear Bob, ...", nil
+		},
+	}
+	cfg := baseConfig()
+	cfg.Hotkeys = map[string]config.Hotkey{
+		"ctrl+alt+space": {
+			Mode:       config.ModeHold,
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose: &config.ComposeStage{
+				Model:        "m:x",
+				Instructions: "Always write in a strictly formal register.",
+			},
+		},
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Additional instructions for this hotkey", "strictly formal register"} {
+		if !strings.Contains(seenSystem, want) {
+			t.Errorf("compose system prompt missing %q:\n%s", want, seenSystem)
+		}
+	}
+}
+
 func TestPipeline_ComposeThenTranslate(t *testing.T) {
 	var sink strings.Builder
 	var callOrder []string

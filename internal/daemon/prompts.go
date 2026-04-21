@@ -23,7 +23,8 @@ type TranslateData struct {
 type EnhanceData struct{}
 
 type ComposeData struct {
-	UserContext string
+	UserContext  string
+	Instructions string
 }
 
 func RenderTranslate(d TranslateData) (string, error) {
@@ -44,6 +45,7 @@ func RenderEnhance(d EnhanceData) (string, error) {
 
 func RenderCompose(d ComposeData) (string, error) {
 	d.UserContext = strings.TrimSpace(d.UserContext)
+	d.Instructions = strings.TrimSpace(d.Instructions)
 	var b strings.Builder
 	if err := composeTmpl.Execute(&b, d); err != nil {
 		return "", err

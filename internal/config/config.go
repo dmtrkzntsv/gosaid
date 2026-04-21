@@ -62,6 +62,10 @@ type EnhanceStage struct {
 
 type ComposeStage struct {
 	Model string `json:"model"`
+	// Instructions is appended to the compose system prompt as an additional
+	// per-hotkey directive (e.g. "always write in formal register" for a
+	// business-email hotkey). Does not replace the defaults.
+	Instructions string `json:"instructions,omitempty"`
 }
 
 const (

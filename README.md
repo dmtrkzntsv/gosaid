@@ -117,6 +117,15 @@ A hotkey runs up to three stages in order: `transcribe` → (`compose` | `enhanc
 }
 ```
 
+The optional `instructions` field adds a per-hotkey directive **on top of** the built-in compose prompt (not a replacement). Pair different hotkeys with different styles — one for formal correspondence, another for casual chat:
+
+```json
+"compose": {
+  "model": "openai:gpt-5.4-nano",
+  "instructions": "Write in a formal, business-email register."
+}
+```
+
 The top-level `user_context` field lets you share personal context with the compose stage — name, role, tone preferences, anything the model should know to personalize the artifact (e.g. sign emails with your name). Write it in any single language; the model is instructed to match your instruction's language for the output and translate/transliterate names as appropriate.
 
 ```json
