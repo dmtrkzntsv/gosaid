@@ -15,8 +15,8 @@ func Validate(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}
-	if cfg.Version != 1 {
-		return fmt.Errorf("unsupported config version %d (expected 1)", cfg.Version)
+	if cfg.Version != 2 {
+		return fmt.Errorf("unsupported config version %d (expected 2)", cfg.Version)
 	}
 	if len(cfg.Drivers) == 0 {
 		return fmt.Errorf("at least one driver must be configured")

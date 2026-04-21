@@ -15,8 +15,8 @@ func validCfg() *Config {
 
 func TestDefaultStructure(t *testing.T) {
 	c := Default()
-	if c.Version != 1 {
-		t.Fatalf("version = %d, want 1", c.Version)
+	if c.Version != 2 {
+		t.Fatalf("version = %d, want 2", c.Version)
 	}
 	if len(c.Drivers) != 1 {
 		t.Fatalf("drivers = %d, want 1", len(c.Drivers))
@@ -142,7 +142,7 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("initial load: %v", err)
 	}
-	if c1.Version != 1 {
+	if c1.Version != 2 {
 		t.Fatalf("default version = %d", c1.Version)
 	}
 

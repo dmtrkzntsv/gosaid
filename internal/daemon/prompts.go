@@ -6,14 +6,6 @@ import (
 	"text/template"
 )
 
-// Bumped whenever the contents of prompts/*.tmpl change in a way that
-// influences model output. Logged at startup for debugging.
-const (
-	TranslateTemplateVersion = 3
-	EnhanceTemplateVersion   = 3
-	ComposeTemplateVersion   = 1
-)
-
 //go:embed prompts/translate.tmpl prompts/enhance.tmpl prompts/compose.tmpl
 var promptFS embed.FS
 

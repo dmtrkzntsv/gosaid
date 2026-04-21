@@ -74,7 +74,7 @@ type mockRegistry struct{ m drivers.Driver }
 
 func (r mockRegistry) asRegistry() *drivers.Registry {
 	reg, _ := drivers.BuildRegistry(&config.Config{
-		Version: 1,
+		Version: 2,
 		Drivers: []config.Driver{{
 			Driver: config.DriverOpenAICompatible,
 			Endpoints: []config.Endpoint{{

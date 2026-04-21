@@ -40,8 +40,6 @@ func Run(injector inject.Injector) error {
 		"version", Version,
 		"os", runtime.GOOS, "arch", runtime.GOARCH,
 		"config", cfgPath,
-		"translate_template", TranslateTemplateVersion,
-		"enhance_template", EnhanceTemplateVersion,
 	)
 
 	pidPath, err := platform.PIDFile()

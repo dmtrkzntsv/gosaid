@@ -69,7 +69,7 @@ const (
 // the user to fill in an API key before it will pass validation.
 func Default() *Config {
 	return &Config{
-		Version: 1,
+		Version: 2,
 		Drivers: []Driver{{
 			Driver: DriverOpenAICompatible,
 			Endpoints: []Endpoint{{
