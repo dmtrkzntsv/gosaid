@@ -1,15 +1,13 @@
 package config
 
 type Config struct {
-	Version          int                          `json:"version"`
-	Drivers          []Driver                     `json:"drivers"`
-	Vocabulary       map[string][]string          `json:"vocabulary,omitempty"`
-	Replacements     map[string]map[string]string `json:"replacements,omitempty"`
-	Hotkeys          map[string]Hotkey            `json:"hotkeys"`
-	ToggleMaxSeconds int                          `json:"toggle_max_seconds"`
-	InjectionMode    string                       `json:"injection_mode"`
-	SoundFeedback    bool                         `json:"sound_feedback"`
-	LogLevel         string                       `json:"log_level"`
+	Version          int               `json:"version"`
+	Drivers          []Driver          `json:"drivers"`
+	Hotkeys          map[string]Hotkey `json:"hotkeys"`
+	ToggleMaxSeconds int               `json:"toggle_max_seconds"`
+	InjectionMode    string            `json:"injection_mode"`
+	SoundFeedback    bool              `json:"sound_feedback"`
+	LogLevel         string            `json:"log_level"`
 }
 
 type Driver struct {
@@ -35,10 +33,11 @@ const (
 )
 
 type Hotkey struct {
-	Mode       HotkeyMode       `json:"mode,omitempty"`
-	Transcribe TranscribeStage  `json:"transcribe"`
-	Translate  *TranslateStage  `json:"translate,omitempty"`
-	Enhance    *EnhanceStage    `json:"enhance,omitempty"`
+	Mode       HotkeyMode      `json:"mode,omitempty"`
+	Transcribe TranscribeStage `json:"transcribe"`
+	Translate  *TranslateStage `json:"translate,omitempty"`
+	Enhance    *EnhanceStage   `json:"enhance,omitempty"`
+	Compose    *ComposeStage   `json:"compose,omitempty"`
 }
 
 type TranscribeStage struct {
@@ -50,12 +49,14 @@ type TranscribeStage struct {
 type TranslateStage struct {
 	OutputLanguage string `json:"output_language"`
 	Model          string `json:"model"`
-	Prompt         string `json:"prompt,omitempty"`
 }
 
 type EnhanceStage struct {
-	Prompt string `json:"prompt,omitempty"`
-	Model  string `json:"model"`
+	Model string `json:"model"`
+}
+
+type ComposeStage struct {
+	Model string `json:"model"`
 }
 
 const (

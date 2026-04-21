@@ -10,7 +10,6 @@ import (
 	"github.com/dmtrkzntsv/gosaid/internal/drivers"
 	"github.com/dmtrkzntsv/gosaid/internal/inject"
 	"github.com/dmtrkzntsv/gosaid/internal/routing"
-	"github.com/dmtrkzntsv/gosaid/internal/text"
 )
 
 // captureStopper is the minimum audio-capture surface the pipeline needs.
@@ -48,20 +47,28 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 
 	p.Core.Transition(StateProcessing, nil)
 
-	text2, err := p.translate(ctx, text1, detectedLang, hk.Translate)
+	var reshaped string
+	switch {
+	case hk.Compose != nil:
+		if hk.Enhance != nil {
+			p.Log.Debug("compose set: enhance stage skipped")
+		}
+		reshaped, err = p.compose(ctx, text1, hk.Compose)
+	case hk.Enhance != nil:
+		reshaped, err = p.enhance(ctx, text1, hk.Enhance)
+	default:
+		reshaped = text1
+	}
 	if err != nil {
 		p.Core.Transition(StateError, err)
 		return err
 	}
 
-	text3, err := p.enhance(ctx, text2, hk.Enhance)
+	final, err := p.translate(ctx, reshaped, detectedLang, hk.Translate)
 	if err != nil {
 		p.Core.Transition(StateError, err)
 		return err
 	}
-
-	outputLang := outputLanguage(hk)
-	final := p.applyReplacements(text3, outputLang)
 
 	if final == "" {
 		// Empty transcription — skip injection but still transition cleanly.
@@ -88,14 +95,10 @@ func (p *Pipeline) transcribe(ctx context.Context, samples []float32, stage conf
 	if err != nil {
 		return "", "", err
 	}
-	vocab := p.vocabularyFor(stage.OutputLanguage)
-	prompt := joinVocab(vocab)
 
 	// English fast path via Whisper's native translate task.
 	if stage.OutputLanguage == "en" {
-		out, err := drv.TranslateSpeech(ctx, samples, p.SampleRate, model, drivers.TranslateSpeechOptions{
-			InitialPrompt: prompt,
-		})
+		out, err := drv.TranslateSpeech(ctx, samples, p.SampleRate, model, drivers.TranslateSpeechOptions{})
 		if err != nil {
 			return "", "", err
 		}
@@ -103,8 +106,7 @@ func (p *Pipeline) transcribe(ctx context.Context, samples []float32, stage conf
 	}
 
 	res, err := drv.Transcribe(ctx, samples, p.SampleRate, model, drivers.TranscribeOptions{
-		Language:      stage.InputLanguage,
-		InitialPrompt: prompt,
+		Language: stage.InputLanguage,
 	})
 	if err != nil {
 		return "", "", err
@@ -124,11 +126,8 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 		return "", err
 	}
 	system, err := RenderTranslate(TranslateData{
-		SourceLanguage:   config.LanguageName(normalizeLang(detected)),
-		TargetLanguage:   config.LanguageName(stage.OutputLanguage),
-		UserInstructions: stage.Prompt,
-		Vocabulary:       p.vocabularyFor(stage.OutputLanguage),
-		Replacements:     replacementKeys(p.Config.Replacements[stage.OutputLanguage]),
+		SourceLanguage: config.LanguageName(normalizeLang(detected)),
+		TargetLanguage: config.LanguageName(stage.OutputLanguage),
 	})
 	if err != nil {
 		return "", err
@@ -149,10 +148,7 @@ func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.Enha
 	if err != nil {
 		return "", err
 	}
-	// Enhance uses the output language for vocab/replacements. We don't know
-	// it without re-reading the hotkey; the caller set replacements before
-	// reaching here, so use the original input's language heuristically.
-	system, err := RenderEnhance(EnhanceData{UserInstructions: stage.Prompt})
+	system, err := RenderEnhance(EnhanceData{})
 	if err != nil {
 		return "", err
 	}
@@ -164,11 +160,24 @@ func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.Enha
 	return out, nil
 }
 
-func (p *Pipeline) applyReplacements(s, lang string) string {
-	if rules, ok := p.Config.Replacements[lang]; ok {
-		return text.Apply(s, rules)
+func (p *Pipeline) compose(ctx context.Context, input string, stage *config.ComposeStage) (string, error) {
+	if stage == nil {
+		return input, nil
 	}
-	return s
+	drv, model, err := p.resolve(stage.Model)
+	if err != nil {
+		return "", err
+	}
+	system, err := RenderCompose(ComposeData{})
+	if err != nil {
+		return "", err
+	}
+	out, err := drv.Chat(ctx, model, system, input)
+	if err != nil {
+		return "", err
+	}
+	p.Log.Debug("compose", "text", out)
+	return out, nil
 }
 
 func (p *Pipeline) resolve(modelRef string) (drivers.Driver, string, error) {
@@ -181,25 +190,6 @@ func (p *Pipeline) resolve(modelRef string) (drivers.Driver, string, error) {
 		return nil, "", err
 	}
 	return drv, m.Model, nil
-}
-
-func (p *Pipeline) vocabularyFor(lang string) []string {
-	if lang == "" {
-		return nil
-	}
-	return p.Config.Vocabulary[lang]
-}
-
-// outputLanguage returns the effective output language for a hotkey, used to
-// pick the replacement table. Priority: translate.output_language > transcribe.output_language > "".
-func outputLanguage(hk config.Hotkey) string {
-	if hk.Translate != nil {
-		return hk.Translate.OutputLanguage
-	}
-	if hk.Transcribe.OutputLanguage != "" {
-		return hk.Transcribe.OutputLanguage
-	}
-	return ""
 }
 
 // normalizeLang maps the human-readable language names Whisper sometimes
@@ -230,26 +220,4 @@ func normalizeLang(s string) string {
 		return "zh"
 	}
 	return s
-}
-
-func joinVocab(xs []string) string {
-	if len(xs) == 0 {
-		return ""
-	}
-	out := xs[0]
-	for _, x := range xs[1:] {
-		out += ", " + x
-	}
-	return out
-}
-
-func replacementKeys(m map[string]string) []string {
-	if len(m) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
 }

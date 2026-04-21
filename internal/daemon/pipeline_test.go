@@ -204,18 +204,27 @@ func TestPipeline_TranslateSkippedWhenLanguageMatches(t *testing.T) {
 	}
 }
 
-func TestPipeline_TranslateAndEnhance(t *testing.T) {
+func TestPipeline_EnhanceThenTranslate(t *testing.T) {
 	var sink strings.Builder
+	var callOrder []string
 	drv := &mockDriver{
 		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
 			return drivers.TranscribeResult{Text: "привет", DetectedLanguage: "ru"}, nil
 		},
 		chat: func(_, system, user string) (string, error) {
-			if strings.Contains(system, "translator") {
-				return "hello", nil
-			}
-			if strings.Contains(system, "text editor") {
+			switch {
+			case strings.Contains(system, "text editor"):
+				callOrder = append(callOrder, "enhance")
+				if user != "привет" {
+					t.Errorf("enhance received %q, want transcript", user)
+				}
 				return user + "!", nil
+			case strings.Contains(system, "translator"):
+				callOrder = append(callOrder, "translate")
+				if user != "привет!" {
+					t.Errorf("translate received %q, want enhance output", user)
+				}
+				return "hello!", nil
 			}
 			t.Fatalf("unexpected system prompt: %s", system)
 			return "", nil
@@ -227,7 +236,7 @@ func TestPipeline_TranslateAndEnhance(t *testing.T) {
 			Mode:       config.ModeHold,
 			Transcribe: config.TranscribeStage{Model: "m:x"},
 			Translate:  &config.TranslateStage{OutputLanguage: "en", Model: "m:x"},
-			Enhance:    &config.EnhanceStage{Prompt: "add !", Model: "m:x"},
+			Enhance:    &config.EnhanceStage{Model: "m:x"},
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
@@ -237,34 +246,126 @@ func TestPipeline_TranslateAndEnhance(t *testing.T) {
 	if sink.String() != "hello!" {
 		t.Errorf("got %q", sink.String())
 	}
+	if len(callOrder) != 2 || callOrder[0] != "enhance" || callOrder[1] != "translate" {
+		t.Errorf("call order = %v, want [enhance translate]", callOrder)
+	}
 }
 
-func TestPipeline_ReplacementsApplied(t *testing.T) {
+func TestPipeline_Compose(t *testing.T) {
 	var sink strings.Builder
+	calls := 0
 	drv := &mockDriver{
 		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
-			return drivers.TranscribeResult{Text: "write a line new line then stop", DetectedLanguage: "en"}, nil
+			return drivers.TranscribeResult{Text: "write a polite email to Alice about lunch", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, system, _ string) (string, error) {
+			calls++
+			if !strings.Contains(system, "finished written artifact") {
+				t.Errorf("compose system prompt missing marker:\n%s", system)
+			}
+			return "Dear Alice, ...", nil
 		},
 	}
 	cfg := baseConfig()
-	cfg.Replacements = map[string]map[string]string{
-		"en": {"new line": "\n"},
-	}
 	cfg.Hotkeys = map[string]config.Hotkey{
 		"ctrl+alt+space": {
 			Mode:       config.ModeHold,
-			Transcribe: config.TranscribeStage{Model: "m:x", OutputLanguage: "en"},
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:x"},
 		},
-	}
-	drv.translateSpeech = func(string, drivers.TranslateSpeechOptions) (string, error) {
-		return "write a line new line then stop", nil
 	}
 	p := newPipeline(t, drv, cfg, &sink)
 	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
 		t.Fatal(err)
 	}
-	if sink.String() != "write a line \n then stop" {
+	if sink.String() != "Dear Alice, ..." {
 		t.Errorf("got %q", sink.String())
+	}
+	if calls != 1 {
+		t.Errorf("chat called %d times, want 1", calls)
+	}
+}
+
+func TestPipeline_ComposeThenTranslate(t *testing.T) {
+	var sink strings.Builder
+	var callOrder []string
+	drv := &mockDriver{
+		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "напиши вежливое письмо Алисе про обед", DetectedLanguage: "ru"}, nil
+		},
+		chat: func(_, system, user string) (string, error) {
+			switch {
+			case strings.Contains(system, "finished written artifact"):
+				callOrder = append(callOrder, "compose")
+				if user != "напиши вежливое письмо Алисе про обед" {
+					t.Errorf("compose received %q, want transcript", user)
+				}
+				return "Дорогая Алиса, ...", nil
+			case strings.Contains(system, "translator"):
+				callOrder = append(callOrder, "translate")
+				if user != "Дорогая Алиса, ..." {
+					t.Errorf("translate received %q, want compose output", user)
+				}
+				return "Dear Alice, ...", nil
+			}
+			t.Fatalf("unexpected system prompt: %s", system)
+			return "", nil
+		},
+	}
+	cfg := baseConfig()
+	cfg.Hotkeys = map[string]config.Hotkey{
+		"ctrl+alt+space": {
+			Mode:       config.ModeHold,
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:x"},
+			Translate:  &config.TranslateStage{OutputLanguage: "en", Model: "m:x"},
+		},
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+		t.Fatal(err)
+	}
+	if sink.String() != "Dear Alice, ..." {
+		t.Errorf("got %q", sink.String())
+	}
+	if len(callOrder) != 2 || callOrder[0] != "compose" || callOrder[1] != "translate" {
+		t.Errorf("call order = %v, want [compose translate]", callOrder)
+	}
+}
+
+func TestPipeline_ComposeSkipsEnhance(t *testing.T) {
+	var sink strings.Builder
+	calls := 0
+	drv := &mockDriver{
+		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "write a note", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, system, _ string) (string, error) {
+			calls++
+			if strings.Contains(system, "text editor") {
+				t.Errorf("enhance must be skipped when compose is set")
+			}
+			return "Note: ...", nil
+		},
+	}
+	cfg := baseConfig()
+	cfg.Hotkeys = map[string]config.Hotkey{
+		"ctrl+alt+space": {
+			Mode:       config.ModeHold,
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:x"},
+			Enhance:    &config.EnhanceStage{Model: "m:x"},
+		},
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+		t.Fatal(err)
+	}
+	if sink.String() != "Note: ..." {
+		t.Errorf("got %q", sink.String())
+	}
+	if calls != 1 {
+		t.Errorf("chat called %d times, want 1", calls)
 	}
 }
 

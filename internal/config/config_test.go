@@ -95,21 +95,23 @@ func TestValidate_TranscribeInputLanguage(t *testing.T) {
 	}
 }
 
-func TestValidate_EnhancePromptOptional(t *testing.T) {
+func TestValidate_ComposeRequiresModel(t *testing.T) {
 	c := validCfg()
 	hk := c.Hotkeys["ctrl+alt+space"]
-	hk.Enhance = &EnhanceStage{Model: "groq:whisper-large-v3", Prompt: "  "}
+	hk.Compose = &ComposeStage{}
 	c.Hotkeys["ctrl+alt+space"] = hk
-	if err := Validate(c); err != nil {
-		t.Fatalf("empty enhance.prompt should be allowed, got: %v", err)
+	if err := Validate(c); err == nil {
+		t.Fatal("expected error for compose stage without model")
 	}
 }
 
-func TestValidate_UnknownLanguageInReplacements(t *testing.T) {
+func TestValidate_ComposeUnknownEndpoint(t *testing.T) {
 	c := validCfg()
-	c.Replacements = map[string]map[string]string{"xx": {"a": "b"}}
+	hk := c.Hotkeys["ctrl+alt+space"]
+	hk.Compose = &ComposeStage{Model: "ghost:gpt-4"}
+	c.Hotkeys["ctrl+alt+space"] = hk
 	if err := Validate(c); err == nil {
-		t.Fatal("expected error for unknown language key in replacements")
+		t.Fatal("expected error for compose.model referencing unknown endpoint")
 	}
 }
 
