@@ -134,8 +134,6 @@ The top-level `user_context` field lets you share personal context with the comp
 "user_context": "My name is Dmitry Kuznetsov, Software Engineer at Acme. Prefer friendly-professional tone; sign emails with just the first name."
 ```
 
-**Top-level integration fields.** `license_key` is reserved for a future licensing UI and is currently unused. `pid_file` and `daemon_binary` are **written by the daemon on startup** — they expose absolute paths so external tools (such as the desktop UI) can locate the running daemon. Do not edit these; any value is overwritten on the next startup.
-
 **Translate** — render the (possibly enhanced or composed) text in another language via an LLM.
 
 ```json
