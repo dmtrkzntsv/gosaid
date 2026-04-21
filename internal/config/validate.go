@@ -15,9 +15,6 @@ func Validate(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
 	}
-	if cfg.Version != 1 {
-		return fmt.Errorf("unsupported config version %d (expected 1)", cfg.Version)
-	}
 	if len(cfg.Drivers) == 0 {
 		return fmt.Errorf("at least one driver must be configured")
 	}
@@ -52,17 +49,6 @@ func Validate(cfg *Config) error {
 	}
 	if cfg.ToggleMaxSeconds <= 0 {
 		return fmt.Errorf("toggle_max_seconds must be > 0")
-	}
-
-	for lang := range cfg.Vocabulary {
-		if !IsValidLanguage(lang) {
-			return fmt.Errorf("vocabulary: unknown language code %q", lang)
-		}
-	}
-	for lang := range cfg.Replacements {
-		if !IsValidLanguage(lang) {
-			return fmt.Errorf("replacements: unknown language code %q", lang)
-		}
 	}
 
 	if len(cfg.Hotkeys) == 0 {
@@ -116,6 +102,14 @@ func validateHotkey(hk Hotkey, endpoints map[string]struct{}) error {
 			return fmt.Errorf("enhance.model is required")
 		}
 		if err := checkModelRef("enhance.model", hk.Enhance.Model, endpoints); err != nil {
+			return err
+		}
+	}
+	if hk.Compose != nil {
+		if hk.Compose.Model == "" {
+			return fmt.Errorf("compose.model is required")
+		}
+		if err := checkModelRef("compose.model", hk.Compose.Model, endpoints); err != nil {
 			return err
 		}
 	}

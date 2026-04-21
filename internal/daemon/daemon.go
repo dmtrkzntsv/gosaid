@@ -40,9 +40,11 @@ func Run(injector inject.Injector) error {
 		"version", Version,
 		"os", runtime.GOOS, "arch", runtime.GOARCH,
 		"config", cfgPath,
-		"translate_template", TranslateTemplateVersion,
-		"enhance_template", EnhanceTemplateVersion,
 	)
+	if cfg.Version != config.CurrentVersion {
+		log.Warn("config version mismatch — unknown fields are ignored; update the `version` field to silence this warning",
+			"got", cfg.Version, "expected", config.CurrentVersion)
+	}
 
 	pidPath, err := platform.PIDFile()
 	if err != nil {

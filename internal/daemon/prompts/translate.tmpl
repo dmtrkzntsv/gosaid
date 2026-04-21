@@ -1,13 +1,7 @@
-You are a translator. Translate the following text from {{.SourceLanguage}} to {{.TargetLanguage}}.
+You are a translator. Translate the following text{{if .SourceLanguage}} from {{.SourceLanguage}}{{end}} to {{.TargetLanguage}}.
 
-{{if .UserInstructions}}{{.UserInstructions}}{{else}}Match the exact wording of the source as closely as possible and keep the original style, register, and tone. Do not paraphrase, summarize, or rephrase.{{end}}
-{{if .Vocabulary}}
-Vocabulary to preserve exactly as written (do not translate these terms):
-{{range .Vocabulary}}- {{.}}
-{{end}}{{end}}{{if .Replacements}}
-After translation, the following find-and-replace rules will be applied automatically, so do not produce these exact strings in your output:
-{{range .Replacements}}- {{.}}
-{{end}}{{end}}
+Match the exact wording of the source as closely as possible and keep the original style, register, and tone. Do not paraphrase, summarize, or rephrase.
+
 Output requirements:
 - Output only the translated text, nothing else.
 - No commentary, no preamble, no quotation marks around the output.
