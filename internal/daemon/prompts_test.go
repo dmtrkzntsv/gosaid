@@ -37,8 +37,15 @@ func TestRenderEnhance_ContainsDefaultInstruction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "speech disfluencies") {
-		t.Errorf("default enhance instruction missing:\n%s", out)
+	for _, want := range []string{
+		"speech disfluencies",
+		"Preserve the original language",
+		"code-switching",
+		"capitalization",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("enhance prompt missing %q:\n%s", want, out)
+		}
 	}
 }
 
