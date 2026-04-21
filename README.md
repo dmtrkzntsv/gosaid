@@ -117,6 +117,12 @@ A hotkey runs up to three stages in order: `transcribe` → (`compose` | `enhanc
 }
 ```
 
+The top-level `user_context` field lets you share personal context with the compose stage — name, role, tone preferences, anything the model should know to personalize the artifact (e.g. sign emails with your name). Write it in any single language; the model is instructed to match your instruction's language for the output and translate/transliterate names as appropriate.
+
+```json
+"user_context": "My name is Dmitry Kuznetsov, Software Engineer at Acme. Prefer friendly-professional tone; sign emails with just the first name."
+```
+
 **Translate** — render the (possibly enhanced or composed) text in another language via an LLM.
 
 ```json

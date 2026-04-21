@@ -286,6 +286,38 @@ func TestPipeline_Compose(t *testing.T) {
 	}
 }
 
+func TestPipeline_ComposeUsesUserContext(t *testing.T) {
+	var sink strings.Builder
+	var seenSystem string
+	drv := &mockDriver{
+		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "write a short note to the team", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, system, _ string) (string, error) {
+			seenSystem = system
+			return "Hi team, ...\n— Dmitry", nil
+		},
+	}
+	cfg := baseConfig()
+	cfg.UserContext = "My name is Dmitry Kuznetsov. Sign notes with just the first name."
+	cfg.Hotkeys = map[string]config.Hotkey{
+		"ctrl+alt+space": {
+			Mode:       config.ModeHold,
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:x"},
+		},
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"About the user (use for personalization", "Dmitry Kuznetsov"} {
+		if !strings.Contains(seenSystem, want) {
+			t.Errorf("compose system prompt missing %q:\n%s", want, seenSystem)
+		}
+	}
+}
+
 func TestPipeline_ComposeThenTranslate(t *testing.T) {
 	var sink strings.Builder
 	var callOrder []string

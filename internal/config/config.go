@@ -8,6 +8,11 @@ type Config struct {
 	InjectionMode    string            `json:"injection_mode"`
 	SoundFeedback    bool              `json:"sound_feedback"`
 	LogLevel         string            `json:"log_level"`
+	// UserContext is free-form personal context (name, role, tone preferences)
+	// injected into the compose stage system prompt. Can be written in any
+	// language; the model is instructed to match the user's instruction
+	// language for the output.
+	UserContext string `json:"user_context,omitempty"`
 }
 
 type Driver struct {

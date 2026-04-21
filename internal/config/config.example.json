@@ -60,5 +60,6 @@
   "toggle_max_seconds": 60,
   "injection_mode": "paste",
   "sound_feedback": true,
-  "log_level": "err"
+  "log_level": "err",
+  "user_context": ""
 }

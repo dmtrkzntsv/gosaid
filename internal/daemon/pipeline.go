@@ -179,7 +179,7 @@ func (p *Pipeline) compose(ctx context.Context, input string, stage *config.Comp
 	if err != nil {
 		return "", err
 	}
-	system, err := RenderCompose(ComposeData{})
+	system, err := RenderCompose(ComposeData{UserContext: p.Config.UserContext})
 	if err != nil {
 		return "", err
 	}

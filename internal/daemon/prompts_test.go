@@ -52,4 +52,29 @@ func TestRenderCompose_ContainsExpectedMarkers(t *testing.T) {
 			t.Errorf("compose prompt missing %q:\n%s", want, out)
 		}
 	}
+	if strings.Contains(out, "About the user (use for personalization") {
+		t.Errorf("user-context block must be absent when UserContext is empty:\n%s", out)
+	}
+}
+
+func TestRenderCompose_WithUserContext(t *testing.T) {
+	out, err := RenderCompose(ComposeData{UserContext: "My name is Dmitry."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"About the user (use for personalization", "My name is Dmitry."} {
+		if !strings.Contains(out, want) {
+			t.Errorf("compose prompt missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderCompose_TrimsBlankUserContext(t *testing.T) {
+	out, err := RenderCompose(ComposeData{UserContext: "   \n\t  "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "About the user (use for personalization") {
+		t.Errorf("whitespace-only UserContext must be treated as empty:\n%s", out)
+	}
 }
