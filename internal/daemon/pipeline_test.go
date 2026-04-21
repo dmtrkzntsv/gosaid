@@ -306,6 +306,9 @@ func TestPipeline_ComposeThenTranslate(t *testing.T) {
 				if user != "Дорогая Алиса, ..." {
 					t.Errorf("translate received %q, want compose output", user)
 				}
+				if strings.Contains(system, "Russian") {
+					t.Errorf("translate prompt should not carry transcribed source after compose:\n%s", system)
+				}
 				return "Dear Alice, ...", nil
 			}
 			t.Fatalf("unexpected system prompt: %s", system)

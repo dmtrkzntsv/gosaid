@@ -48,12 +48,18 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 	p.Core.Transition(StateProcessing, nil)
 
 	var reshaped string
+	translateLang := detectedLang
 	switch {
 	case hk.Compose != nil:
 		if hk.Enhance != nil {
 			p.Log.Debug("compose set: enhance stage skipped")
 		}
 		reshaped, err = p.compose(ctx, text1, hk.Compose)
+		// Compose may produce output in a different language than the transcript
+		// (e.g. Russian instruction "write this in English"). Drop the stale
+		// language hint so translate neither skips incorrectly nor fills the
+		// prompt with a wrong source.
+		translateLang = ""
 	case hk.Enhance != nil:
 		reshaped, err = p.enhance(ctx, text1, hk.Enhance)
 	default:
@@ -64,7 +70,7 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 		return err
 	}
 
-	final, err := p.translate(ctx, reshaped, detectedLang, hk.Translate)
+	final, err := p.translate(ctx, reshaped, translateLang, hk.Translate)
 	if err != nil {
 		p.Core.Transition(StateError, err)
 		return err
@@ -118,15 +124,20 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 	if stage == nil {
 		return input, nil
 	}
-	if normalizeLang(detected) == stage.OutputLanguage {
+	detectedCode := normalizeLang(detected)
+	if detectedCode != "" && detectedCode == stage.OutputLanguage {
 		return input, nil
 	}
 	drv, model, err := p.resolve(stage.Model)
 	if err != nil {
 		return "", err
 	}
+	sourceName := ""
+	if detectedCode != "" {
+		sourceName = config.LanguageName(detectedCode)
+	}
 	system, err := RenderTranslate(TranslateData{
-		SourceLanguage: config.LanguageName(normalizeLang(detected)),
+		SourceLanguage: sourceName,
 		TargetLanguage: config.LanguageName(stage.OutputLanguage),
 	})
 	if err != nil {
@@ -136,7 +147,7 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 	if err != nil {
 		return "", err
 	}
-	p.Log.Debug("translation", "text", out, "source", normalizeLang(detected), "target", stage.OutputLanguage)
+	p.Log.Debug("translation", "text", out, "source", detectedCode, "target", stage.OutputLanguage)
 	return out, nil
 }
 

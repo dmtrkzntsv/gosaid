@@ -20,6 +20,18 @@ func TestRenderTranslate_IncludesLanguages(t *testing.T) {
 	}
 }
 
+func TestRenderTranslate_OmitsSourceWhenUnknown(t *testing.T) {
+	out, err := RenderTranslate(TranslateData{TargetLanguage: "English"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstLine, _, _ := strings.Cut(out, "\n")
+	want := "You are a translator. Translate the following text to English."
+	if firstLine != want {
+		t.Errorf("first line = %q, want %q", firstLine, want)
+	}
+}
+
 func TestRenderEnhance_ContainsDefaultInstruction(t *testing.T) {
 	out, err := RenderEnhance(EnhanceData{})
 	if err != nil {
