@@ -6,12 +6,12 @@
 #   - The C# project under windows/GosaidUI.
 #
 # Output:
-#   - $OUT_DIR/Gosaid/            directory containing GosaidUI.exe + gosaid.exe
+#   - $OUT_DIR/GoSaid/            directory containing GoSaidUI.exe + gosaid.exe
 #
 # Env:
 #   VERSION      Marketing version string (injected into the assembly).
 #   DAEMON_EXE   Path to the gosaid.exe Go binary to embed.  Default: out/gosaid.exe.
-#   OUT_DIR      Where to emit the Gosaid folder.  Default: out.
+#   OUT_DIR      Where to emit the GoSaid folder.  Default: out.
 #   ARCH         win-x64 (default).  Accepted for forward compatibility.
 
 set -euo pipefail
@@ -58,17 +58,17 @@ dotnet publish "$CSPROJ" \
     -p:InformationalVersion="$VERSION" \
     -p:Version="$numeric_version"
 
-UI_EXE="$PUBLISH_DIR/GosaidUI.exe"
+UI_EXE="$PUBLISH_DIR/GoSaidUI.exe"
 if [[ ! -f "$UI_EXE" ]]; then
     echo "build-windows-ui: dotnet publish did not produce $UI_EXE" >&2
     exit 1
 fi
 
-DIST="$OUT_DIR/Gosaid"
+DIST="$OUT_DIR/GoSaid"
 echo "build-windows-ui: assembling $DIST"
 rm -rf "$DIST"
 mkdir -p "$DIST"
-cp "$UI_EXE" "$DIST/GosaidUI.exe"
+cp "$UI_EXE" "$DIST/GoSaidUI.exe"
 cp "$DAEMON_EXE" "$DIST/gosaid.exe"
 
 # Copy debug/pdb artefacts too so crash dumps are actionable without a build server.

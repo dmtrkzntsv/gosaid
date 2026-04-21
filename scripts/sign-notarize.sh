@@ -3,7 +3,7 @@
 #
 # Accepts either:
 #   - a Mach-O binary (legacy, e.g. "out/gosaid")
-#   - a .app bundle   (new, e.g. "out/Gosaid.app")
+#   - a .app bundle   (new, e.g. "out/GoSaid.app")
 #
 # For bundles, every Mach-O inside Contents/MacOS/ is signed individually
 # with the runtime hardening + entitlements, the outer bundle is signed

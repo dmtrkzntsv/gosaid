@@ -17,7 +17,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Gosaid — Settings"
+        window.title = "GoSaid — Settings"
         window.contentViewController = hosting
         window.minSize = NSSize(width: 520, height: 380)
         window.center()

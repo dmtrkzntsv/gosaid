@@ -210,7 +210,7 @@ jobs:
           p12-password: ${{ secrets.MACOS_CERT_PASSWORD }}
           keychain-password: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
 
-      - name: Sign + notarize Gosaid.app
+      - name: Sign + notarize GoSaid.app
         if: matrix.target.os == 'darwin' && needs.resolve.outputs.release == 'true'
         shell: bash
         env:
@@ -218,7 +218,7 @@ jobs:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-        run: ./scripts/sign-notarize.sh out/Gosaid.app
+        run: ./scripts/sign-notarize.sh out/GoSaid.app
 
       - name: Package
         shell: bash
@@ -239,16 +239,16 @@ jobs:
               # signed + notarized binary from inside the bundle as the plain
               # top-level "gosaid" so Homebrew installs don't trigger
               # Gatekeeper warnings.
-              cp -R out/Gosaid.app "dist/${stem}/"
-              cp "out/Gosaid.app/Contents/MacOS/gosaid" "dist/${stem}/gosaid"
+              cp -R out/GoSaid.app "dist/${stem}/"
+              cp "out/GoSaid.app/Contents/MacOS/gosaid" "dist/${stem}/gosaid"
               cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
               cp -r examples "dist/${stem}/" 2>/dev/null || true
               ;;
             windows)
-              # Ship the full Gosaid/ folder (GosaidUI.exe + gosaid.exe) at
+              # Ship the full GoSaid/ folder (GoSaidUI.exe + gosaid.exe) at
               # the root of the distribution tree.  Users unzip, then run
-              # GosaidUI.exe.
-              cp -r out/Gosaid "dist/${stem}/Gosaid"
+              # GoSaidUI.exe.
+              cp -r out/GoSaid "dist/${stem}/GoSaid"
               cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
               ;;
             *)

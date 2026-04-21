@@ -23,7 +23,7 @@ internal sealed class SettingsForm : Form
 
     public SettingsForm()
     {
-        Text = "Gosaid — Settings";
+        Text = "GoSaid — Settings";
         MinimumSize = new Size(640, 480);
         Size = new Size(720, 540);
         StartPosition = FormStartPosition.CenterScreen;
@@ -193,7 +193,7 @@ internal sealed class SettingsForm : Form
         {
             MessageBox.Show(
                 $"Failed to read config.json:\n\n{ex.Message}\n\nStarting with defaults.",
-                "Gosaid",
+                "GoSaid",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
             _config = Defaults.NewConfig();
@@ -227,7 +227,7 @@ internal sealed class SettingsForm : Form
         {
             MessageBox.Show(
                 $"Failed to save:\n\n{ex.Message}",
-                "Gosaid",
+                "GoSaid",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
@@ -286,7 +286,7 @@ internal sealed class SettingsForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to open Notepad: {ex.Message}", "Gosaid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"Failed to open Notepad: {ex.Message}", "GoSaid", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

@@ -20,13 +20,13 @@ clean:
 	rm -f $(BIN)
 	rm -rf dist out
 
-# Assemble Gosaid.app for the host architecture.  Requires a Mac and Swift.
+# Assemble GoSaid.app for the host architecture.  Requires a Mac and Swift.
 build-macos-app:
 	mkdir -p out
 	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o out/gosaid $(PKG)
 	VERSION=$(VERSION) DAEMON_BIN=out/gosaid OUT_DIR=out scripts/build-macos-app.sh
 
-# Assemble the Windows Gosaid/ folder.  Requires .NET 9 SDK.  When run from
+# Assemble the Windows GoSaid/ folder.  Requires .NET 9 SDK.  When run from
 # a non-Windows host, the Go cross-build produces gosaid.exe first.
 build-windows-ui:
 	mkdir -p out
@@ -38,7 +38,7 @@ build-windows-ui:
 # Native-arch dry run of the release packaging step (no signing, no upload).
 # Useful before pushing a tag to confirm the package step still works.
 #
-# On darwin hosts this now packages Gosaid.app; on Linux/Windows it
+# On darwin hosts this now packages GoSaid.app; on Linux/Windows it
 # packages the plain binary as before.
 release-snapshot:
 	@OS=$$(go env GOOS); ARCH=$$(go env GOARCH); \
@@ -47,7 +47,7 @@ release-snapshot:
 	mkdir -p dist/$$stem; \
 	if [ "$$OS" = "darwin" ]; then \
 		$(MAKE) build-macos-app VERSION=$(VERSION); \
-		cp -R out/Gosaid.app dist/$$stem/; \
+		cp -R out/GoSaid.app dist/$$stem/; \
 		cp LICENSE README.md dist/$$stem/ 2>/dev/null || true; \
 		tar -C dist -czf dist/$$stem.tar.gz $$stem; \
 		rm -rf dist/$$stem; \
@@ -55,7 +55,7 @@ release-snapshot:
 		echo "wrote dist/$$stem.tar.gz"; \
 	elif [ "$$OS" = "windows" ]; then \
 		$(MAKE) build-windows-ui VERSION=$(VERSION); \
-		cp -r out/Gosaid dist/$$stem/; \
+		cp -r out/GoSaid dist/$$stem/; \
 		cp LICENSE README.md dist/$$stem/ 2>/dev/null || true; \
 		( cd dist && zip -r -q $$stem.zip $$stem ); \
 		rm -rf dist/$$stem; \

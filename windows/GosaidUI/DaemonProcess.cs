@@ -41,7 +41,7 @@ internal sealed class DaemonProcess : IDisposable
             if (!File.Exists(exe))
             {
                 throw new FileNotFoundException(
-                    $"gosaid.exe not found next to GosaidUI.exe (expected {exe})", exe);
+                    $"gosaid.exe not found next to GoSaidUI.exe (expected {exe})", exe);
             }
 
             Directory.CreateDirectory(Paths.StateDir);

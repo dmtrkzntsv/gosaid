@@ -13,11 +13,11 @@ On macOS and Windows an optional **native menubar/tray UI** sits on top of the d
 ### macOS — menubar app
 
 1. Download `gosaid-<version>-darwin-arm64.tar.gz` (or `-amd64`) from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest).
-2. Extract and drag `Gosaid.app` into `/Applications`.
-3. Launch Gosaid — a microphone icon appears in the menu bar. Click it → **Settings…** to fill in your API key.
+2. Extract and drag `GoSaid.app` into `/Applications`.
+3. Launch GoSaid — a microphone icon appears in the menu bar. Click it → **Settings…** to fill in your API key.
 4. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
 
-The app is signed and notarized — no Gatekeeper warning. The daemon runs as a child process of `Gosaid.app`; quitting from the menu stops everything. Add Gosaid to **Login Items** (System Settings → General → Login Items) to auto-start at login.
+The app is signed and notarized — no Gatekeeper warning. The daemon runs as a child process of `GoSaid.app`; quitting from the menu stops everything. Add GoSaid to **Login Items** (System Settings → General → Login Items) to auto-start at login.
 
 ### macOS & Linux — headless CLI (Homebrew)
 
@@ -32,10 +32,10 @@ Upgrade with `brew upgrade gosaid`. Stop with `brew services stop gosaid`.
 ### Windows — tray app
 
 1. Download and extract `gosaid-<version>-windows-amd64.zip` from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest).
-2. Move the whole `Gosaid\` folder somewhere stable (e.g. `C:\Program Files\Gosaid\` or your user folder). The folder contains two files: `GosaidUI.exe` (tray + settings) and `gosaid.exe` (daemon). **Keep them together** — the UI looks for the daemon next to itself.
-3. Double-click `GosaidUI.exe`. SmartScreen will warn "Windows protected your PC" on first run — click **More info → Run anyway**. (The Windows binaries are unsigned in v1.)
+2. Move the whole `GoSaid\` folder somewhere stable (e.g. `C:\Program Files\GoSaid\` or your user folder). The folder contains two files: `GoSaidUI.exe` (tray + settings) and `gosaid.exe` (daemon). **Keep them together** — the UI looks for the daemon next to itself.
+3. Double-click `GoSaidUI.exe`. SmartScreen will warn "Windows protected your PC" on first run — click **More info → Run anyway**. (The Windows binaries are unsigned in v1.)
 4. A microphone icon appears in the system tray. Right-click → **Settings…** to add your API key.
-5. To auto-start at login, right-click `GosaidUI.exe` → **Create shortcut** and drop it into `shell:startup`.
+5. To auto-start at login, right-click `GoSaidUI.exe` → **Create shortcut** and drop it into `shell:startup`.
 
 Prefer headless? Running `gosaid.exe` directly (without the UI) behaves like the CLI on macOS/Linux.
 
@@ -140,7 +140,7 @@ Prebuilt binaries for all platforms are on the [releases page](https://github.co
 
 ### macOS (arm64 / amd64)
 
-The darwin tarball contains both `Gosaid.app` (UI) and `gosaid` (plain daemon binary). For a headless setup, use the binary:
+The darwin tarball contains both `GoSaid.app` (UI) and `gosaid` (plain daemon binary). For a headless setup, use the binary:
 
 ```
 tar -xzf gosaid-<version>-darwin-arm64.tar.gz   # or -amd64
@@ -149,7 +149,7 @@ gosaid config
 gosaid                         # foreground; Ctrl+C to stop
 ```
 
-For the menubar UI, copy `Gosaid.app` into `/Applications` instead — see [Install → macOS](#macos--menubar-app) above.
+For the menubar UI, copy `GoSaid.app` into `/Applications` instead — see [Install → macOS](#macos--menubar-app) above.
 
 Both the `.app` bundle and the plain binary are signed and notarized — no Gatekeeper warning. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
 
@@ -173,8 +173,8 @@ Same as the [Install → Windows](#windows--tray-app) section above.
 
 Requirements:
 - **Go 1.25+** (daemon, all platforms)
-- **Swift 5.9+ / Xcode Command Line Tools** (only if building `Gosaid.app` on macOS)
-- **.NET 9 SDK** (only if building `GosaidUI.exe` on Windows)
+- **Swift 5.9+ / Xcode Command Line Tools** (only if building `GoSaid.app` on macOS)
+- **.NET 9 SDK** (only if building `GoSaidUI.exe` on Windows)
 
 ```
 git clone https://github.com/dmtrkzntsv/gosaid
@@ -186,11 +186,11 @@ make build
 
 # macOS .app bundle (on a Mac):
 make build-macos-app
-open out/Gosaid.app
+open out/GoSaid.app
 
 # Windows tray folder (on Windows, or cross-built with dotnet + mingw):
 make build-windows-ui
-# → out/Gosaid/{GosaidUI.exe, gosaid.exe}
+# → out/GoSaid/{GoSaidUI.exe, gosaid.exe}
 ```
 
 ## License

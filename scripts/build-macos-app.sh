@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build the Gosaid.app bundle for macOS.
+# Build the GoSaid.app bundle for macOS.
 #
 # Inputs:
 #   - An already-built gosaid binary at $DAEMON_BIN (defaults to out/gosaid).
 #   - The Swift wrapper under macos/GosaidMenuBar.
 #
 # Output:
-#   - $OUT_DIR/Gosaid.app (default: out/Gosaid.app)
+#   - $OUT_DIR/GoSaid.app (default: out/GoSaid.app)
 #
 # Env:
 #   VERSION      Marketing version string (injected into Info.plist).
@@ -27,7 +27,7 @@ case "$ARCH" in
 esac
 DAEMON_BIN="${DAEMON_BIN:-$ROOT/out/gosaid}"
 OUT_DIR="${OUT_DIR:-$ROOT/out}"
-APP="$OUT_DIR/Gosaid.app"
+APP="$OUT_DIR/GoSaid.app"
 SWIFT_PKG="$ROOT/macos/GosaidMenuBar"
 
 if [[ ! -x "$DAEMON_BIN" ]]; then

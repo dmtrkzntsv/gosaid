@@ -26,11 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // SF Symbol "mic" — template icon adapts to light/dark menu bar.
             let symbol = NSImage(
                 systemSymbolName: "mic",
-                accessibilityDescription: "Gosaid"
+                accessibilityDescription: "GoSaid"
             )
             symbol?.isTemplate = true
             button.image = symbol
-            button.toolTip = "Gosaid"
+            button.toolTip = "GoSaid"
         }
 
         let menu = NSMenu()

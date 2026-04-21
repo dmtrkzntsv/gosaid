@@ -49,7 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tray = new NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "Gosaid",
+            Text = "GoSaid",
             Visible = true,
             ContextMenuStrip = menu,
         };
@@ -70,7 +70,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void SetStatus(string text)
     {
         _statusItem.Text = $"Status: {text}";
-        _tray.Text = text == "Running" ? "Gosaid — running" : $"Gosaid — {text.ToLower()}";
+        _tray.Text = text == "Running" ? "GoSaid — running" : $"GoSaid — {text.ToLower()}";
     }
 
     private void ShowSettings()
@@ -122,7 +122,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         MessageBox.Show(
             $"{summary}\n\n{ex.Message}",
-            "Gosaid",
+            "GoSaid",
             MessageBoxButtons.OK,
             MessageBoxIcon.Error);
     }
