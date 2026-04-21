@@ -47,7 +47,6 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_PUBLISH: ${{ inputs.publish }}
-          HEAD_MSG: ${{ github.event.head_commit.message }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
@@ -89,22 +88,12 @@ jobs:
                 version="$(strip_v "$REF_NAME")"
                 release=true
               else
-                # Push to main: auto-bump patch and publish, unless skip marker present.
-                if [[ "$HEAD_MSG" == *"[skip release]"* || "$HEAD_MSG" == *"[no release]"* ]]; then
-                  echo "Skip marker found in head commit — building without releasing."
-                  base="$(last_tag)"
-                  base="${base#v}"
-                  version="${base:-0.0.0}-dev.${GITHUB_SHA::7}"
-                  release=false
-                else
-                  base="$(last_tag)"
-                  if [[ -z "$base" ]]; then
-                    version="0.1.0"
-                  else
-                    version="$(bump_patch "${base#v}")"
-                  fi
-                  release=true
-                fi
+                # Push to main: build-only CI signal, never auto-release.
+                # Release by pushing a v* tag or running workflow_dispatch.
+                base="$(last_tag)"
+                base="${base#v}"
+                version="${base:-0.0.0}-dev.${GITHUB_SHA::7}"
+                release=false
               fi
               ;;
             workflow_dispatch)
