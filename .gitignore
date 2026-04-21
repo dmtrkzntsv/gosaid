@@ -2,22 +2,11 @@
 /gosaid
 /gosaid.exe
 /assets/
-/out/
-/dist/
 
 # go
 *.test
 *.out
 /vendor/
-
-# swift (macos/GosaidMenuBar)
-macos/*/.build/
-macos/*/.swiftpm/
-macos/*/Package.resolved
-
-# .NET (windows/GosaidUI)
-windows/*/bin/
-windows/*/obj/
 
 # editor / OS
 .DS_Store

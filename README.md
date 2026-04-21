@@ -2,24 +2,13 @@
 
 **Dictate in your native language, get text in another one.** Set up a hotkey that transcribes your speech and translates it on the fly — so you can speak your language and insert English (or any other) straight into the app under your cursor.
 
-Designed to stay **lightweight with as few dependencies as possible**: transcription and translation run against any OpenAI-compatible cloud API (OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar), so the daemon itself is a small static binary that ships as a single file, starts instantly, and idles with a negligible footprint — no bundled models, no background services beyond the one process.
-
-On macOS and Windows an optional **native menubar/tray UI** sits on top of the daemon: a small, first-party wrapper that launches the Go daemon as a child process and exposes a Settings window for the common knobs. On Linux the daemon remains headless (CLI-only).
+Designed to stay **lightweight with as few dependencies as possible**: transcription and translation run against any OpenAI-compatible cloud API (OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar), so the daemon itself is a small static binary that ships as a single file, starts instantly, and idles with a negligible footprint — no bundled models, no UI, no background services beyond the one process.
 
 > **Platform status:** Actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
 
 ## Install
 
-### macOS — menubar app
-
-1. Download `gosaid-<version>-darwin-arm64.tar.gz` (or `-amd64`) from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest).
-2. Extract and drag `GoSaid.app` into `/Applications`.
-3. Launch GoSaid — a microphone icon appears in the menu bar. Click it → **Settings…** to fill in your API key.
-4. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
-
-The app is signed and notarized — no Gatekeeper warning. The daemon runs as a child process of `GoSaid.app`; quitting from the menu stops everything. Add GoSaid to **Login Items** (System Settings → General → Login Items) to auto-start at login.
-
-### macOS & Linux — headless CLI (Homebrew)
+### macOS & Linux (Homebrew)
 
 ```
 brew install dmtrkzntsv/tap/gosaid
@@ -29,17 +18,14 @@ brew services start gosaid     # runs in background, auto-starts at login
 
 Upgrade with `brew upgrade gosaid`. Stop with `brew services stop gosaid`.
 
-### Windows — tray app
+### Windows
 
 1. Download and extract `gosaid-<version>-windows-amd64.zip` from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest).
-2. Move the whole `GoSaid\` folder somewhere stable (e.g. `C:\Program Files\GoSaid\` or your user folder). The folder contains two files: `GoSaidUI.exe` (tray + settings) and `gosaid.exe` (daemon). **Keep them together** — the UI looks for the daemon next to itself.
-3. Double-click `GoSaidUI.exe`. SmartScreen will warn "Windows protected your PC" on first run — click **More info → Run anyway**. (The Windows binaries are unsigned in v1.)
-4. A microphone icon appears in the system tray. Right-click → **Settings…** to add your API key.
-5. To auto-start at login, right-click `GoSaidUI.exe` → **Create shortcut** and drop it into `shell:startup`.
+2. Move `gosaid.exe` to a folder on your `PATH` (e.g. `C:\Users\<you>\bin\`, then add it via System Properties → Environment Variables).
+3. SmartScreen will warn "Windows protected your PC" on first run — click **More info → Run anyway**. (The Windows binary is unsigned in v1.)
+4. Configure and run: `gosaid config` then `gosaid`.
 
-Prefer headless? Running `gosaid.exe` directly (without the UI) behaves like the CLI on macOS/Linux.
-
-> Want a raw binary on macOS/Linux, or build from source? See [Manual installation](#manual-installation) at the bottom.
+> Prefer a raw binary on macOS/Linux, or want to build from source? See [Manual installation](#manual-installation) at the bottom.
 
 ## Configuration
 
@@ -140,8 +126,6 @@ Prebuilt binaries for all platforms are on the [releases page](https://github.co
 
 ### macOS (arm64 / amd64)
 
-The darwin tarball contains both `GoSaid.app` (UI) and `gosaid` (plain daemon binary). For a headless setup, use the binary:
-
 ```
 tar -xzf gosaid-<version>-darwin-arm64.tar.gz   # or -amd64
 sudo mv gosaid-<version>-darwin-arm64/gosaid /usr/local/bin/
@@ -149,9 +133,7 @@ gosaid config
 gosaid                         # foreground; Ctrl+C to stop
 ```
 
-For the menubar UI, copy `GoSaid.app` into `/Applications` instead — see [Install → macOS](#macos--menubar-app) above.
-
-Both the `.app` bundle and the plain binary are signed and notarized — no Gatekeeper warning. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
+The macOS binary is signed and notarized — no Gatekeeper warning. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
 
 ### Linux (amd64 / arm64)
 
@@ -167,30 +149,15 @@ A keystroke-injection tool is required: `wtype` (Wayland), `xdotool` (X11), or `
 
 ### Windows (amd64)
 
-Same as the [Install → Windows](#windows--tray-app) section above.
+Same as the [Install → Windows](#windows) section above.
 
-### From source
-
-Requirements:
-- **Go 1.25+** (daemon, all platforms)
-- **Swift 5.9+ / Xcode Command Line Tools** (only if building `GoSaid.app` on macOS)
-- **.NET 9 SDK** (only if building `GoSaidUI.exe` on Windows)
+### From source (Go 1.25+)
 
 ```
 git clone https://github.com/dmtrkzntsv/gosaid
 cd gosaid
-
-# Headless daemon (all platforms):
 make build
 ./gosaid version
-
-# macOS .app bundle (on a Mac):
-make build-macos-app
-open out/GoSaid.app
-
-# Windows tray folder (on Windows, or cross-built with dotnet + mingw):
-make build-windows-ui
-# → out/GoSaid/{GoSaidUI.exe, gosaid.exe}
 ```
 
 ## License

@@ -162,13 +162,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
 
-      - name: Setup .NET SDK (Windows UI)
-        if: matrix.target.os == 'windows'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Build daemon
+      - name: Build
         shell: bash
         env:
           GOOS: ${{ matrix.target.os }}
@@ -183,34 +177,15 @@ jobs:
             -o "out/gosaid${{ matrix.target.ext }}" \
             ./cmd/gosaid
 
-      - name: Build macOS app bundle
-        if: matrix.target.os == 'darwin'
-        shell: bash
-        env:
-          VERSION: ${{ needs.resolve.outputs.version }}
-          ARCH: ${{ matrix.target.arch }}
-          DAEMON_BIN: out/gosaid
-          OUT_DIR: out
-        run: ./scripts/build-macos-app.sh
-
-      - name: Build Windows UI folder
-        if: matrix.target.os == 'windows'
-        shell: bash
-        env:
-          VERSION: ${{ needs.resolve.outputs.version }}
-          DAEMON_EXE: out/gosaid.exe
-          OUT_DIR: out
-        run: ./scripts/build-windows-ui.sh
-
       - name: Import macOS signing certificate
-        if: matrix.target.os == 'darwin' && needs.resolve.outputs.release == 'true'
+        if: matrix.target.os == 'darwin'
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
           p12-password: ${{ secrets.MACOS_CERT_PASSWORD }}
           keychain-password: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
 
-      - name: Sign + notarize GoSaid.app
+      - name: Sign + notarize macOS binary
         if: matrix.target.os == 'darwin' && needs.resolve.outputs.release == 'true'
         shell: bash
         env:
@@ -218,7 +193,7 @@ jobs:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-        run: ./scripts/sign-notarize.sh out/GoSaid.app
+        run: ./scripts/sign-notarize.sh out/gosaid
 
       - name: Package
         shell: bash
@@ -231,32 +206,9 @@ jobs:
           set -euo pipefail
           stem="gosaid-${VERSION}-${OS}-${ARCH}"
           mkdir -p "dist/${stem}"
-
-          case "$OS" in
-            darwin)
-              # Ship both the .app bundle (for UI users) and the plain gosaid
-              # binary (for headless / Homebrew formula installs).  Use the
-              # signed + notarized binary from inside the bundle as the plain
-              # top-level "gosaid" so Homebrew installs don't trigger
-              # Gatekeeper warnings.
-              cp -R out/GoSaid.app "dist/${stem}/"
-              cp "out/GoSaid.app/Contents/MacOS/gosaid" "dist/${stem}/gosaid"
-              cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
-              cp -r examples "dist/${stem}/" 2>/dev/null || true
-              ;;
-            windows)
-              # Ship the full GoSaid/ folder (GoSaidUI.exe + gosaid.exe) at
-              # the root of the distribution tree.  Users unzip, then run
-              # GoSaidUI.exe.
-              cp -r out/GoSaid "dist/${stem}/GoSaid"
-              cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
-              ;;
-            *)
-              cp "out/gosaid${EXT}" "dist/${stem}/"
-              cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
-              cp -r examples "dist/${stem}/" 2>/dev/null || true
-              ;;
-          esac
+          cp "out/gosaid${EXT}" "dist/${stem}/"
+          cp LICENSE README.md "dist/${stem}/" 2>/dev/null || true
+          cp -r examples "dist/${stem}/" 2>/dev/null || true
 
           cd dist
           if [[ "$OS" == "windows" ]]; then
