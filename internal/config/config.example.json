@@ -64,7 +64,5 @@
   "sound_feedback": true,
   "log_level": "err",
   "user_context": "",
-  "license_key": "",
-  "pid_file": "",
-  "daemon_binary": ""
+  "license_key": ""
 }
