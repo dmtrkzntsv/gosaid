@@ -16,11 +16,6 @@ type Config struct {
 	// LicenseKey is reserved for a future licensing UI. Currently unused by
 	// the daemon.
 	LicenseKey string `json:"license_key,omitempty"`
-	// PIDFile and DaemonBinary are written by the daemon on startup as hints
-	// for external tools (e.g. the desktop UI) that need to locate the
-	// running daemon. Any user-provided value is overwritten.
-	PIDFile      string `json:"pid_file,omitempty"`
-	DaemonBinary string `json:"daemon_binary,omitempty"`
 }
 
 type Driver struct {

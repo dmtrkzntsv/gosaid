@@ -83,14 +83,30 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 	}
 
 	p.Core.Transition(StateInjecting, nil)
+	// Record the attempt up-front so the UI can offer "Copy Last Text"
+	// even when the inject itself fails (or crashes the daemon outright).
+	// Success/failure is flipped after Inject returns.
+	if err := RecordInjection(final, false, ""); err != nil {
+		p.Log.Warn("state file", "err", err)
+	}
 	if err := p.Injector.Inject(ctx, final); err != nil {
 		var iferr *inject.InjectionFailedError
 		if errors.As(err, &iferr) && iferr.TextInClipboard {
-			p.Core.Transition(StateError, fmt.Errorf("paste failed — use Cmd/Ctrl+V to paste from clipboard: %w", err))
+			wrapped := fmt.Errorf("paste failed — use Cmd/Ctrl+V to paste from clipboard: %w", err)
+			if rerr := RecordInjection(final, false, wrapped.Error()); rerr != nil {
+				p.Log.Warn("state file", "err", rerr)
+			}
+			p.Core.Transition(StateError, wrapped)
 			return err
+		}
+		if rerr := RecordInjection(final, false, err.Error()); rerr != nil {
+			p.Log.Warn("state file", "err", rerr)
 		}
 		p.Core.Transition(StateError, err)
 		return err
+	}
+	if err := RecordInjection(final, true, ""); err != nil {
+		p.Log.Warn("state file", "err", err)
 	}
 	p.Core.Transition(StateIdle, nil)
 	return nil

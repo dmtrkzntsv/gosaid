@@ -55,21 +55,18 @@ func Run(injector inject.Injector) error {
 	}
 	defer func() { _ = Release(pidPath) }()
 
-	// Expose resolved paths to external tools (e.g. the desktop UI) via the
-	// config file. Write is idempotent — only touches disk when values
-	// change — and non-fatal: the daemon still runs if the write fails.
+	// Expose live daemon status (state, pid, binary path, last injection)
+	// to external tools via state.json. Non-fatal — the daemon runs even
+	// if the file can't be written.
 	exe, err := os.Executable()
 	if err != nil {
 		log.Warn("resolve executable path", "err", err)
 		exe = ""
 	}
-	if cfg.PIDFile != pidPath || cfg.DaemonBinary != exe {
-		cfg.PIDFile = pidPath
-		cfg.DaemonBinary = exe
-		if err := config.Save(cfgPath, cfg); err != nil {
-			log.Warn("persist UI hint fields", "err", err)
-		}
+	if err := InitStateFile(os.Getpid(), exe); err != nil {
+		log.Warn("init state file", "err", err)
 	}
+	defer func() { _ = ClearStateFile() }()
 
 	reg, err := drivers.BuildRegistry(cfg)
 	if err != nil {
@@ -96,6 +93,13 @@ func Run(injector inject.Injector) error {
 			return
 		}
 		log.Debug("state", "from", e.Previous.String(), "to", e.State.String())
+	})
+	// Mirror every transition into state.json so the UI can react without
+	// IPC. Errors here are non-fatal and only logged at Warn.
+	core.Subscribe(func(e StateEvent) {
+		if err := UpdateState(e.State); err != nil {
+			log.Warn("state file", "err", err)
+		}
 	})
 
 	pipe := &Pipeline{
