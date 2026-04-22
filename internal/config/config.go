@@ -13,9 +13,6 @@ type Config struct {
 	// language; the model is instructed to match the user's instruction
 	// language for the output.
 	UserContext string `json:"user_context,omitempty"`
-	// LicenseKey is reserved for a future licensing UI. Currently unused by
-	// the daemon.
-	LicenseKey string `json:"license_key,omitempty"`
 }
 
 type Driver struct {
