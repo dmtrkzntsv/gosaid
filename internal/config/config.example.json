@@ -63,6 +63,5 @@
   "injection_mode": "paste",
   "sound_feedback": true,
   "log_level": "err",
-  "user_context": "",
-  "license_key": ""
+  "user_context": ""
 }
