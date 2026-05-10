@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -124,17 +125,29 @@ func Run(injector inject.Injector) error {
 		if mode == "" {
 			mode = hotkey.ModeHold
 		}
+		// captureLive tracks whether the most recent OnTrigger actually
+		// started capture. OnStop reads it to decide whether to run the
+		// pipeline — guards against a Start() failure followed by error
+		// auto-recovery (Error→Idle) racing the user's hotkey release.
+		var captureLive atomic.Bool
 		handler := hotkey.Handler{
 			OnTrigger: func() {
+				captureLive.Store(false)
 				if !core.TryStartRecording() {
 					log.Debug("hotkey press ignored — core busy", "combo", combo)
 					return
 				}
 				if err := capturer.Start(); err != nil {
 					core.Transition(StateError, err)
+					return
 				}
+				captureLive.Store(true)
 			},
 			OnStop: func() {
+				if !captureLive.Swap(false) {
+					log.Debug("hotkey release ignored — capture never started", "combo", combo)
+					return
+				}
 				go func() {
 					pctx, pcancel := context.WithTimeout(ctx, 90*time.Second)
 					defer pcancel()

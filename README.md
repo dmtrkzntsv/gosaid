@@ -158,6 +158,8 @@ gosaid                         # foreground; Ctrl+C to stop
 
 The macOS binary is signed and notarized — no Gatekeeper warning. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
 
+> Running an unsigned `./gosaid` from source? The TCC subject is your **terminal app**, not gosaid — grant Microphone (and Accessibility) to Terminal/iTerm/Ghostty in System Settings → Privacy & Security.
+
 ### Linux (amd64 / arm64)
 
 ```
