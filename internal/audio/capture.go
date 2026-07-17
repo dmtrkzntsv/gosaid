@@ -167,14 +167,14 @@ func (c *Capturer) Stop() ([]float32, error) {
 	if dev != nil {
 		dev.Uninit()
 	}
-	return resampleLinear(raw, rate, CaptureSampleRate), nil
+	return ResampleLinear(raw, rate, CaptureSampleRate), nil
 }
 
-// resampleLinear converts mono float32 samples from inRate to outRate using
+// ResampleLinear converts mono float32 samples from inRate to outRate using
 // linear interpolation. Speech transcription is forgiving enough that
 // linear is fine — Whisper does its own internal resampling and is robust
 // to mild aliasing in the input.
-func resampleLinear(in []float32, inRate, outRate int) []float32 {
+func ResampleLinear(in []float32, inRate, outRate int) []float32 {
 	if len(in) == 0 || inRate <= 0 || outRate <= 0 || inRate == outRate {
 		return in
 	}
