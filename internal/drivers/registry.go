@@ -16,14 +16,18 @@ type Registry struct {
 func BuildRegistry(cfg *config.Config) (*Registry, error) {
 	r := &Registry{endpoints: map[string]Driver{}}
 	for _, d := range cfg.Drivers {
-		if d.Driver != config.DriverOpenAICompatible {
-			return nil, fmt.Errorf("unsupported driver type %q", d.Driver)
-		}
 		for _, e := range d.Endpoints {
 			if _, dup := r.endpoints[e.ID]; dup {
 				return nil, fmt.Errorf("duplicate endpoint id %q", e.ID)
 			}
-			r.endpoints[e.ID] = NewOpenAICompatible(e.Config.APIBase, e.Config.APIKey)
+			switch d.Driver {
+			case config.DriverOpenAICompatible:
+				r.endpoints[e.ID] = NewOpenAICompatible(e.Config.APIBase, e.Config.APIKey)
+			case config.DriverWhisperCPP:
+				r.endpoints[e.ID] = NewWhisperCPP(e.Config.Models)
+			default:
+				return nil, fmt.Errorf("unsupported driver type %q", d.Driver)
+			}
 		}
 	}
 	return r, nil
