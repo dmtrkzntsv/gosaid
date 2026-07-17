@@ -18,5 +18,5 @@ package ggmlsrc
 // #cgo darwin LDFLAGS: -framework Accelerate -framework Metal -framework MetalKit -framework Foundation
 // #cgo linux LDFLAGS: -lm -lstdc++ -pthread
 // #cgo windows CXXFLAGS: -Wa,-mbig-obj
-// #cgo windows LDFLAGS: -lm -lstdc++ -pthread -static-libgcc -static-libstdc++
+// #cgo windows LDFLAGS: -lm -pthread -static-libgcc -static-libstdc++
 import "C"
