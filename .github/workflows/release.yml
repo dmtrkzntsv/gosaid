@@ -151,17 +151,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
 
-      # The vendored whisper.cpp cgo packages are not yet imported by
-      # ./cmd/gosaid, so build them explicitly to validate the cross-platform
-      # cgo flags on every target until a later task wires them in.
-      - name: Build whisper cgo packages
-        shell: bash
-        env:
-          GOOS: ${{ matrix.target.os }}
-          GOARCH: ${{ matrix.target.arch }}
-          CGO_ENABLED: '1'
-        run: go build ./internal/whisper/...
-
       - name: Build
         shell: bash
         env:
