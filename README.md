@@ -103,6 +103,50 @@ Each optional stage accepts an `"enable": false` field to skip it without removi
 
 `input_language` is an optional ISO 639-1 hint for Whisper. `output_language: "en"` activates Whisper's native English fast-path; for other targets, chain a `translate` stage.
 
+### Local transcription (no cloud)
+
+The transcribe stage can run fully locally via embedded whisper.cpp — no API
+key, no network. Download a GGML model from Hugging Face and it is registered
+in your config automatically:
+
+```
+gosaid model download ggerganov/whisper.cpp ggml-base.bin
+```
+
+This creates a `whisper_cpp` driver block:
+
+```json
+{
+  "driver": "whisper_cpp",
+  "endpoints": [
+    {
+      "id": "local",
+      "config": {
+        "models": { "base": "/path/to/models/ggml-base.bin" }
+      }
+    }
+  ]
+}
+```
+
+Reference it from a hotkey like any other endpoint:
+
+```json
+"transcribe": { "model": "local:base" }
+```
+
+Notes:
+
+- Pick a model by RAM/speed trade-off: `ggml-tiny.bin` (~75 MB), `ggml-base.bin`
+  (~140 MB), `ggml-small.bin` (~460 MB), `ggml-large-v3-turbo.bin` (~1.6 GB).
+  The model loads on first use and stays in memory.
+- On macOS inference runs on the GPU (Metal); elsewhere on CPU.
+- Local models cover **transcription only** — `enhance`, `compose`, and
+  `translate` still need an OpenAI-compatible endpoint (cloud, or a local
+  server like Ollama via `api_base`).
+- `--name`, `--endpoint`, and `--force` flags customize registration; any
+  Hugging Face repo/file that hosts GGML whisper models works.
+
 **Enhance** — strips speech disfluencies ("um", "uh", false starts, repeats) without changing meaning or style.
 
 ```json
