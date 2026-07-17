@@ -1,4 +1,4 @@
-.PHONY: build test fmt vet clean release-snapshot
+.PHONY: build test fmt vet clean release-snapshot vendor-whisper
 
 BIN := gosaid
 PKG := ./cmd/gosaid
@@ -19,6 +19,10 @@ vet:
 clean:
 	rm -f $(BIN)
 	rm -rf dist out
+
+# Re-vendor whisper.cpp sources at a pinned tag (see internal/whisper/cvendor/VERSION).
+vendor-whisper:
+	scripts/vendor-whisper.sh $(WHISPER_TAG)
 
 # Native-arch dry run of the release packaging step (no signing, no upload).
 # Useful before pushing a tag to confirm the package step still works.
