@@ -25,21 +25,35 @@ func NewWhisperCPP(models map[string]string) *WhisperCPP {
 
 func (w *WhisperCPP) model(name string) (*whisper.Model, error) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	if m, ok := w.loaded[name]; ok {
+		w.mu.Unlock()
 		return m, nil
 	}
 	p, ok := w.paths[name]
+	w.mu.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("whisper_cpp: unknown model %q", name)
 	}
+
 	abs, err := config.ExpandPath(p)
 	if err != nil {
 		return nil, err
 	}
+	// whisper.Load runs a potentially multi-second cgo call; it must not hold
+	// w.mu, or a concurrent Transcribe for a different, already-cached model
+	// would block on it for no reason.
 	m, err := whisper.Load(abs)
 	if err != nil {
 		return nil, err
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if existing, ok := w.loaded[name]; ok {
+		// Another goroutine won the race and cached its instance first;
+		// close our redundant one and use theirs.
+		m.Close()
+		return existing, nil
 	}
 	w.loaded[name] = m
 	return m, nil
