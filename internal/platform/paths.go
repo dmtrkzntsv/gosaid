@@ -48,3 +48,13 @@ func PIDFile() (string, error) {
 	}
 	return filepath.Join(dir, "gosaid.pid"), nil
 }
+
+// ModelsDir returns the directory for downloaded GGML model files,
+// alongside the config file.
+func ModelsDir() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "models"), nil
+}
