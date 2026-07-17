@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -53,7 +54,7 @@ func TestValidate_DuplicateEndpointID(t *testing.T) {
 	c := validCfg()
 	c.Drivers[0].Endpoints = append(c.Drivers[0].Endpoints, Endpoint{
 		ID:     "groq",
-		Config: OpenAICompatibleConfig{APIBase: "x", APIKey: "y"},
+		Config: EndpointConfig{APIBase: "x", APIKey: "y"},
 	})
 	if err := Validate(c); err == nil {
 		t.Fatal("expected error for duplicate endpoint id")
@@ -211,3 +212,89 @@ func TestLoad_MissingWritesEmbeddedExample(t *testing.T) {
 	}
 }
 
+func whisperTestConfig(t *testing.T, modelPath string) *Config {
+	t.Helper()
+	return &Config{
+		Version: CurrentVersion,
+		Drivers: []Driver{
+			{Driver: DriverOpenAICompatible, Endpoints: []Endpoint{{
+				ID: "openai", Config: EndpointConfig{APIBase: "https://api.openai.com/v1", APIKey: "sk-x"},
+			}}},
+			{Driver: DriverWhisperCPP, Endpoints: []Endpoint{{
+				ID: "local", Config: EndpointConfig{Models: map[string]string{"base": modelPath}},
+			}}},
+		},
+		Hotkeys: map[string]Hotkey{
+			"ctrl+alt+space": {Transcribe: TranscribeStage{Model: "local:base"}},
+		},
+		ToggleMaxSeconds: 60,
+	}
+}
+
+func tempModelFile(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "ggml-base.bin")
+	if err := os.WriteFile(p, []byte("stub"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestValidateWhisperCPPValid(t *testing.T) {
+	cfg := whisperTestConfig(t, tempModelFile(t))
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("expected valid, got: %v", err)
+	}
+}
+
+func TestValidateWhisperCPPEmptyModels(t *testing.T) {
+	cfg := whisperTestConfig(t, tempModelFile(t))
+	cfg.Drivers[1].Endpoints[0].Config.Models = nil
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "models") {
+		t.Fatalf("expected models-required error, got: %v", err)
+	}
+}
+
+func TestValidateWhisperCPPMissingFile(t *testing.T) {
+	cfg := whisperTestConfig(t, filepath.Join(t.TempDir(), "nope.bin"))
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected file-not-found error, got: %v", err)
+	}
+}
+
+func TestValidateWhisperCPPUnknownModelName(t *testing.T) {
+	cfg := whisperTestConfig(t, tempModelFile(t))
+	hk := cfg.Hotkeys["ctrl+alt+space"]
+	hk.Transcribe.Model = "local:huge"
+	cfg.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "huge") {
+		t.Fatalf("expected unknown-model error, got: %v", err)
+	}
+}
+
+func TestValidateChatStageRejectsWhisperEndpoint(t *testing.T) {
+	cfg := whisperTestConfig(t, tempModelFile(t))
+	hk := cfg.Hotkeys["ctrl+alt+space"]
+	hk.Enhance = &EnhanceStage{Model: "local:base"}
+	cfg.Hotkeys["ctrl+alt+space"] = hk
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "transcription only") {
+		t.Fatalf("expected chat-stage rejection, got: %v", err)
+	}
+}
+
+func TestExpandPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+	got, err := ExpandPath("~/models/x.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(home, "models", "x.bin"); got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, _ := ExpandPath("/abs/path.bin"); got != "/abs/path.bin" {
+		t.Fatalf("absolute path must pass through, got %q", got)
+	}
+}

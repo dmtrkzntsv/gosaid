@@ -42,7 +42,7 @@ func newPipeline(t *testing.T, drv drivers.Driver, cfg *config.Config, sink *str
 		Driver: config.DriverOpenAICompatible,
 		Endpoints: []config.Endpoint{{
 			ID:     "m",
-			Config: config.OpenAICompatibleConfig{APIBase: "http://x", APIKey: "k"},
+			Config: config.EndpointConfig{APIBase: "http://x", APIKey: "k"},
 		}},
 	}}
 	if err := config.Validate(cfg); err != nil {
@@ -79,7 +79,7 @@ func (r mockRegistry) asRegistry() *drivers.Registry {
 			Driver: config.DriverOpenAICompatible,
 			Endpoints: []config.Endpoint{{
 				ID:     "m",
-				Config: config.OpenAICompatibleConfig{APIBase: "http://x", APIKey: "k"},
+				Config: config.EndpointConfig{APIBase: "http://x", APIKey: "k"},
 			}},
 		}},
 		Hotkeys:          map[string]config.Hotkey{"ctrl+alt+space": {Transcribe: config.TranscribeStage{Model: "m:x"}}},
