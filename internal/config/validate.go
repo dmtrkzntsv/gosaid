@@ -62,8 +62,12 @@ func Validate(cfg *Config) error {
 					if err != nil {
 						return fmt.Errorf("endpoint %q: model %q: %w", e.ID, name, err)
 					}
-					if _, err := os.Stat(abs); err != nil {
+					fi, err := os.Stat(abs)
+					if err != nil {
 						return fmt.Errorf("endpoint %q: model %q: file not found: %s", e.ID, name, abs)
+					}
+					if fi.IsDir() {
+						return fmt.Errorf("endpoint %q: model %q: path is a directory, not a model file: %s", e.ID, name, abs)
 					}
 				}
 			}

@@ -109,3 +109,62 @@ func TestModelDownloadDuplicateWithoutForce(t *testing.T) {
 		t.Fatalf("force overwrite failed: %v", err)
 	}
 }
+
+func TestModelDownloadEndpointCollisionWithOtherDriver(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("V1"))
+	}))
+	t.Cleanup(srv.Close)
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := config.Save(cfgPath, config.Default()); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	opts := modelDownloadOpts{
+		repo: "ggerganov/whisper.cpp", file: "ggml-base.bin",
+		name: "base", endpointID: "groq", // pre-existing openai_compatible endpoint id
+		cfgPath: cfgPath, modelsDir: filepath.Join(dir, "models"),
+		baseURL: srv.URL,
+	}
+	err = modelDownload(opts)
+	if err == nil {
+		t.Fatal("expected error registering under an endpoint id owned by another driver")
+	}
+	if !strings.Contains(err.Error(), "groq") || !strings.Contains(err.Error(), config.DriverOpenAICompatible) {
+		t.Fatalf("expected error mentioning endpoint id and driver type, got: %v", err)
+	}
+
+	if entries, _ := os.ReadDir(opts.modelsDir); len(entries) != 0 {
+		t.Fatalf("expected no files downloaded, got %v", entries)
+	}
+	after, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("config must be untouched when endpoint id collides with another driver")
+	}
+}
+
+func TestRunModelRejectsInterleavedFlagAfterName(t *testing.T) {
+	// "model download repo --name x file": the two-phase flag.Parse must not
+	// silently treat "--name" as the file positional.
+	code := RunModel([]string{"download", "repo", "--name", "x", "file"})
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+}
+
+func TestRunModelRejectsFlagAsFilePositional(t *testing.T) {
+	// "model download repo --force": must not treat "--force" as the file
+	// positional.
+	code := RunModel([]string{"download", "repo", "--force"})
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+}

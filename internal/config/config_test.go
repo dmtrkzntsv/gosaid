@@ -262,6 +262,13 @@ func TestValidateWhisperCPPMissingFile(t *testing.T) {
 	}
 }
 
+func TestValidateWhisperCPPModelPathIsDirectory(t *testing.T) {
+	cfg := whisperTestConfig(t, t.TempDir())
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "directory") {
+		t.Fatalf("expected directory error, got: %v", err)
+	}
+}
+
 func TestValidateWhisperCPPUnknownModelName(t *testing.T) {
 	cfg := whisperTestConfig(t, tempModelFile(t))
 	hk := cfg.Hotkeys["ctrl+alt+space"]

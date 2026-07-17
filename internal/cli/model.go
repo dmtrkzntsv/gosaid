@@ -36,7 +36,7 @@ func RunModel(args []string) int {
 		}
 		rest = rest[:2]
 	}
-	if len(rest) != 2 {
+	if len(rest) != 2 || rest[0] == "" || rest[1] == "" || strings.HasPrefix(rest[0], "-") || strings.HasPrefix(rest[1], "-") {
 		fmt.Fprintln(os.Stderr, modelUsage)
 		return 2
 	}
@@ -81,6 +81,10 @@ func modelDownload(o modelDownloadOpts) error {
 	cfg, err := config.Load(o.cfgPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+	if driver := otherDriverForEndpoint(cfg, o.endpointID); driver != "" {
+		return fmt.Errorf("endpoint %q already exists with driver %q; choose a different --endpoint id",
+			o.endpointID, driver)
 	}
 	if existing := findWhisperModel(cfg, o.endpointID, o.name); existing != "" && !o.force {
 		return fmt.Errorf("model %q is already registered on endpoint %q → %s (use --force to overwrite)",
@@ -163,6 +167,23 @@ func (p *progressReader) Read(b []byte) (int, error) {
 		}
 	}
 	return n, err
+}
+
+// otherDriverForEndpoint scans all drivers for an endpoint with the given id
+// belonging to a driver other than whisper_cpp, returning that driver's type
+// (or "" if the id is unused or already owned by whisper_cpp).
+func otherDriverForEndpoint(cfg *config.Config, endpointID string) string {
+	for _, d := range cfg.Drivers {
+		if d.Driver == config.DriverWhisperCPP {
+			continue
+		}
+		for _, e := range d.Endpoints {
+			if e.ID == endpointID {
+				return d.Driver
+			}
+		}
+	}
+	return ""
 }
 
 // findWhisperModel returns the registered path for name on the endpoint, or "".
