@@ -1,15 +1,6 @@
 name: release
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'README.md'
-      - '**/*.md'
-      - 'LICENSE'
   workflow_dispatch:
     inputs:
       version:
@@ -43,8 +34,6 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REF_TYPE: ${{ github.ref_type }}
-          REF_NAME: ${{ github.ref_name }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_PUBLISH: ${{ inputs.publish }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,19 +72,6 @@ jobs:
           version=""
 
           case "$EVENT_NAME" in
-            push)
-              if [[ "$REF_TYPE" == "tag" ]]; then
-                version="$(strip_v "$REF_NAME")"
-                release=true
-              else
-                # Push to main: build-only CI signal, never auto-release.
-                # Release by pushing a v* tag or running workflow_dispatch.
-                base="$(last_tag)"
-                base="${base#v}"
-                version="${base:-0.0.0}-dev.${GITHUB_SHA::7}"
-                release=false
-              fi
-              ;;
             workflow_dispatch)
               if [[ -z "$INPUT_VERSION" ]]; then
                 base="$(last_tag)"
