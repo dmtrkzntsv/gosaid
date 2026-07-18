@@ -46,7 +46,12 @@ const (
 )
 
 type Hotkey struct {
-	Mode       HotkeyMode      `json:"mode,omitempty"`
+	Mode HotkeyMode `json:"mode,omitempty"`
+	// Microphone selects the input device for this hotkey by name —
+	// a case-insensitive substring match against `gosaid mic list`.
+	// Empty uses the system default. If the device is absent when
+	// recording starts, capture falls back to the default (logged).
+	Microphone string          `json:"microphone,omitempty"`
 	Transcribe TranscribeStage `json:"transcribe"`
 	Translate  *TranslateStage `json:"translate,omitempty"`
 	Enhance    *EnhanceStage   `json:"enhance,omitempty"`

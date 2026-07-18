@@ -49,41 +49,40 @@ func (c *Capturer) Close() {
 	}
 }
 
-// Start begins capture from whichever device is currently the system default.
-// Re-resolves the default each call so the daemon survives a hotplug
-// (e.g. USB headset disconnected, default reverts to built-in mic).
+// Start begins capture from the device matching preferredDevice, or the
+// system default when preferredDevice is empty. Re-resolves devices each
+// call so the daemon survives a hotplug (e.g. USB headset disconnected,
+// default reverts to built-in mic).
 //
 // On macOS, Core Audio can keep a disconnected USB device flagged as default
-// until something forces a refresh — so if opening the OS-flagged default
-// fails, this falls through to the remaining devices in enumeration order.
-func (c *Capturer) Start() error {
+// until something forces a refresh — so if opening the first-choice device
+// fails, this falls through to the remaining devices. Returns the name of
+// the device that was actually opened; callers can compare it against
+// preferredDevice (via MatchesDevice) to detect a fallback.
+func (c *Capturer) Start(preferredDevice string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.active {
-		return errors.New("capture already active")
+		return "", errors.New("capture already active")
 	}
 
 	devices, err := c.ctx.Devices(malgo.Capture)
 	if err != nil {
-		return fmt.Errorf("enumerate capture devices: %w%s", err, malgoCodeSuffix(err))
+		return "", fmt.Errorf("enumerate capture devices: %w%s", err, malgoCodeSuffix(err))
 	}
 	if len(devices) == 0 {
-		return errors.New("no capture devices available")
+		return "", errors.New("no capture devices available")
 	}
 
-	// Order: OS-flagged default first, then everything else. This keeps the
-	// happy path identical to before while letting us recover when the
-	// "default" is a stale phantom (disconnected USB device on macOS).
-	ordered := make([]malgo.DeviceInfo, 0, len(devices))
+	names := make([]string, len(devices))
+	defaults := make([]bool, len(devices))
 	for i := range devices {
-		if devices[i].IsDefault != 0 {
-			ordered = append(ordered, devices[i])
-		}
+		names[i] = devices[i].Name()
+		defaults[i] = devices[i].IsDefault != 0
 	}
-	for i := range devices {
-		if devices[i].IsDefault == 0 {
-			ordered = append(ordered, devices[i])
-		}
+	ordered := make([]malgo.DeviceInfo, 0, len(devices))
+	for _, i := range orderPreference(names, defaults, preferredDevice) {
+		ordered = append(ordered, devices[i])
 	}
 
 	c.samples = c.samples[:0]
@@ -107,9 +106,74 @@ func (c *Capturer) Start() error {
 		c.device = dev
 		c.deviceRate = rate
 		c.active = true
-		return nil
+		return ordered[i].Name(), nil
 	}
-	return fmt.Errorf("no capture device could be opened: %s", strings.Join(attemptErrs, "; "))
+	return "", fmt.Errorf("no capture device could be opened: %s", strings.Join(attemptErrs, "; "))
+}
+
+// MatchesDevice reports whether a device name satisfies a configured
+// microphone preference. Matching is a case-insensitive substring test, so
+// "usb" selects "USB PnP Sound Device". An empty preference matches nothing.
+func MatchesDevice(name, preferred string) bool {
+	if preferred == "" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(name), strings.ToLower(preferred))
+}
+
+// orderPreference returns device indices in open-attempt order: devices
+// matching the preferred name first, then the OS-flagged default, then the
+// rest in enumeration order. The default-then-rest tail lets capture recover
+// when the first choice is a stale phantom (disconnected USB device on
+// macOS) or the preferred device is currently unplugged.
+func orderPreference(names []string, defaults []bool, preferred string) []int {
+	order := make([]int, 0, len(names))
+	taken := make([]bool, len(names))
+	pick := func(match func(i int) bool) {
+		for i := range names {
+			if !taken[i] && match(i) {
+				order = append(order, i)
+				taken[i] = true
+			}
+		}
+	}
+	pick(func(i int) bool { return MatchesDevice(names[i], preferred) })
+	pick(func(i int) bool { return defaults[i] })
+	pick(func(i int) bool { return true })
+	return order
+}
+
+// CaptureDevice describes an available input device.
+type CaptureDevice struct {
+	Name    string
+	Default bool
+}
+
+// ListCaptureDevices enumerates input devices using a short-lived audio
+// context. Intended for CLI use; the daemon enumerates through its
+// long-lived Capturer instead.
+func ListCaptureDevices() ([]CaptureDevice, error) {
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("init audio context: %w", err)
+	}
+	defer func() {
+		_ = ctx.Uninit()
+		ctx.Free()
+	}()
+
+	devices, err := ctx.Devices(malgo.Capture)
+	if err != nil {
+		return nil, fmt.Errorf("enumerate capture devices: %w%s", err, malgoCodeSuffix(err))
+	}
+	out := make([]CaptureDevice, 0, len(devices))
+	for i := range devices {
+		out = append(out, CaptureDevice{
+			Name:    devices[i].Name(),
+			Default: devices[i].IsDefault != 0,
+		})
+	}
+	return out, nil
 }
 
 // tryOpenDevice attempts to init and start capture on a specific device.
