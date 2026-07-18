@@ -135,11 +135,34 @@ Reference it from a hotkey like any other endpoint:
 "transcribe": { "model": "local:base" }
 ```
 
+Recommended models (best first):
+
+```
+gosaid model download ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin --name turbo
+gosaid model download ggerganov/whisper.cpp ggml-small.bin
+gosaid model download ggerganov/whisper.cpp ggml-base.bin
+```
+
+- `large-v3-turbo-q5_0` (~550 MB) — near large-v3 accuracy at a fraction of the
+  latency; the best choice for dictation, especially in non-English languages.
+- `small` (~460 MB) — balanced multilingual fallback, fast even on plain CPU.
+- `base` (~140 MB) — near-instant, fine for quick English notes; weaker on
+  non-English speech and proper nouns.
+
+Tips:
+
+- Dictating in a non-English language? Go straight to turbo — small models
+  degrade fastest outside English.
+- English only? The `.en` variants (`ggml-small.en.bin`, `ggml-tiny.en.bin`)
+  punch a size class above their multilingual siblings.
+- Quantized variants (`-q5_0`, `-q5_1`, `-q8_0` suffixes in the same repo) are
+  ~3× smaller at roughly the same accuracy — prefer them at medium size and up.
+- Hotkeys pin models, so a nice setup is two bindings: turbo on your main
+  dictation hotkey, base on a scratch hotkey for throwaway notes.
+
 Notes:
 
-- Pick a model by RAM/speed trade-off: `ggml-tiny.bin` (~75 MB), `ggml-base.bin`
-  (~140 MB), `ggml-small.bin` (~460 MB), `ggml-large-v3-turbo.bin` (~1.6 GB).
-  The model loads on first use and stays in memory.
+- The model loads on first use and stays in memory.
 - On macOS inference runs on the GPU (Metal); elsewhere on CPU.
 - Local models cover **transcription only** — `enhance`, `compose`, and
   `translate` still need an OpenAI-compatible endpoint (cloud, or a local
