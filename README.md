@@ -103,6 +103,73 @@ Each optional stage accepts an `"enable": false` field to skip it without removi
 
 `input_language` is an optional ISO 639-1 hint for Whisper. `output_language: "en"` activates Whisper's native English fast-path; for other targets, chain a `translate` stage.
 
+### Local transcription (no cloud)
+
+The transcribe stage can run fully locally via embedded whisper.cpp — no API
+key, no network. Download a GGML model from Hugging Face and it is registered
+in your config automatically:
+
+```
+gosaid model download ggerganov/whisper.cpp ggml-base.bin
+```
+
+This creates a `whisper_cpp` driver block:
+
+```json
+{
+  "driver": "whisper_cpp",
+  "endpoints": [
+    {
+      "id": "local",
+      "config": {
+        "models": { "base": "/path/to/models/ggml-base.bin" }
+      }
+    }
+  ]
+}
+```
+
+Reference it from a hotkey like any other endpoint:
+
+```json
+"transcribe": { "model": "local:base" }
+```
+
+Recommended models (best first):
+
+```
+gosaid model download ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin --name turbo
+gosaid model download ggerganov/whisper.cpp ggml-small.bin
+gosaid model download ggerganov/whisper.cpp ggml-base.bin
+```
+
+- `large-v3-turbo-q5_0` (~550 MB) — near large-v3 accuracy at a fraction of the
+  latency; the best choice for dictation, especially in non-English languages.
+- `small` (~460 MB) — balanced multilingual fallback, fast even on plain CPU.
+- `base` (~140 MB) — near-instant, fine for quick English notes; weaker on
+  non-English speech and proper nouns.
+
+Tips:
+
+- Dictating in a non-English language? Go straight to turbo — small models
+  degrade fastest outside English.
+- English only? The `.en` variants (`ggml-small.en.bin`, `ggml-tiny.en.bin`)
+  punch a size class above their multilingual siblings.
+- Quantized variants (`-q5_0`, `-q5_1`, `-q8_0` suffixes in the same repo) are
+  ~3× smaller at roughly the same accuracy — prefer them at medium size and up.
+- Hotkeys pin models, so a nice setup is two bindings: turbo on your main
+  dictation hotkey, base on a scratch hotkey for throwaway notes.
+
+Notes:
+
+- The model loads on first use and stays in memory.
+- On macOS inference runs on the GPU (Metal); elsewhere on CPU.
+- Local models cover **transcription only** — `enhance`, `compose`, and
+  `translate` still need an OpenAI-compatible endpoint (cloud, or a local
+  server like Ollama via `api_base`).
+- `--name`, `--endpoint`, and `--force` flags customize registration; any
+  Hugging Face repo/file that hosts GGML whisper models works.
+
 **Enhance** — strips speech disfluencies ("um", "uh", false starts, repeats) without changing meaning or style.
 
 ```json

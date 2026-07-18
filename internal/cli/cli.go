@@ -22,6 +22,8 @@ func Dispatch(version string, args []string) int {
 			return 1
 		}
 		return 0
+	case "model":
+		return RunModel(args[1:])
 	case "version", "-v", "--version":
 		fmt.Println(version)
 		return 0
@@ -41,6 +43,8 @@ func Usage() {
 usage:
   gosaid           run the daemon
   gosaid config    open the config file in $EDITOR
+  gosaid model download <hf-repo> <file>
+                   download a GGML model from Hugging Face and register it
   gosaid version   print version
   gosaid help      print this message`)
 }

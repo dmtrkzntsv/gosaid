@@ -21,13 +21,17 @@ type Driver struct {
 }
 
 type Endpoint struct {
-	ID     string                 `json:"id"`
-	Config OpenAICompatibleConfig `json:"config"`
+	ID     string         `json:"id"`
+	Config EndpointConfig `json:"config"`
 }
 
-type OpenAICompatibleConfig struct {
-	APIBase string `json:"api_base"`
-	APIKey  string `json:"api_key"`
+// EndpointConfig is the per-endpoint configuration. Which fields are required
+// depends on the driver type: openai_compatible needs api_base/api_key;
+// whisper_cpp needs models (name → GGML model file path).
+type EndpointConfig struct {
+	APIBase string            `json:"api_base,omitempty"`
+	APIKey  string            `json:"api_key,omitempty"`
+	Models  map[string]string `json:"models,omitempty"`
 }
 
 type HotkeyMode string
@@ -101,6 +105,7 @@ func (s *ComposeStage) IsEnabled() bool {
 const (
 	CurrentVersion         = 2
 	DriverOpenAICompatible = "openai_compatible"
+	DriverWhisperCPP       = "whisper_cpp"
 	InjectionModePaste     = "paste"
 	DefaultToggleSeconds   = 60
 )
@@ -114,7 +119,7 @@ func Default() *Config {
 			Driver: DriverOpenAICompatible,
 			Endpoints: []Endpoint{{
 				ID: "groq",
-				Config: OpenAICompatibleConfig{
+				Config: EndpointConfig{
 					APIBase: "https://api.groq.com/openai/v1",
 					APIKey:  "",
 				},
