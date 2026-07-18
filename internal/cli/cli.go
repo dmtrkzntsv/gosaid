@@ -24,6 +24,8 @@ func Dispatch(version string, args []string) int {
 		return 0
 	case "model":
 		return RunModel(args[1:])
+	case "mic":
+		return RunMic(args[1:])
 	case "version", "-v", "--version":
 		fmt.Println(version)
 		return 0
@@ -45,6 +47,7 @@ usage:
   gosaid config    open the config file in $EDITOR
   gosaid model download <hf-repo> <file>
                    download a GGML model from Hugging Face and register it
+  gosaid mic list  list available microphones (* marks the system default)
   gosaid version   print version
   gosaid help      print this message`)
 }

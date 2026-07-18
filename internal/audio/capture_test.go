@@ -2,8 +2,56 @@ package audio
 
 import (
 	"math"
+	"slices"
 	"testing"
 )
+
+func TestMatchesDevice(t *testing.T) {
+	cases := []struct {
+		name, preferred string
+		want            bool
+	}{
+		{"USB PnP Sound Device", "usb", true},
+		{"USB PnP Sound Device", "USB PnP Sound Device", true},
+		{"MacBook Pro Microphone", "macbook pro", true},
+		{"MacBook Pro Microphone", "usb", false},
+		{"MacBook Pro Microphone", "", false},
+	}
+	for _, c := range cases {
+		if got := MatchesDevice(c.name, c.preferred); got != c.want {
+			t.Errorf("MatchesDevice(%q, %q): got %v, want %v", c.name, c.preferred, got, c.want)
+		}
+	}
+}
+
+func TestOrderPreference(t *testing.T) {
+	names := []string{"Webcam Mic", "MacBook Pro Microphone", "USB PnP Sound Device"}
+	defaults := []bool{false, true, false}
+
+	cases := []struct {
+		desc, preferred string
+		want            []int
+	}{
+		{"no preference: default first, then enumeration order", "", []int{1, 0, 2}},
+		{"preferred first, then default, then rest", "usb", []int{2, 1, 0}},
+		{"preferred is the default: no duplicates", "macbook", []int{1, 0, 2}},
+		{"unplugged preference: falls back to default ordering", "airpods", []int{1, 0, 2}},
+	}
+	for _, c := range cases {
+		if got := orderPreference(names, defaults, c.preferred); !slices.Equal(got, c.want) {
+			t.Errorf("%s: got %v, want %v", c.desc, got, c.want)
+		}
+	}
+}
+
+func TestOrderPreference_MultipleMatches(t *testing.T) {
+	names := []string{"USB Mic A", "Built-in", "USB Mic B"}
+	defaults := []bool{false, true, false}
+	// Both USB devices match; they keep enumeration order ahead of the default.
+	if got := orderPreference(names, defaults, "usb"); !slices.Equal(got, []int{0, 2, 1}) {
+		t.Errorf("got %v, want [0 2 1]", got)
+	}
+}
 
 func TestResampleLinear_NoOpWhenRatesMatch(t *testing.T) {
 	in := []float32{0.1, 0.2, 0.3, 0.4}

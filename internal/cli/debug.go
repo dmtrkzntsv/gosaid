@@ -163,11 +163,19 @@ func debugRecordTest(args []string) int {
 	}
 	defer cap.Close()
 
-	fmt.Fprintf(os.Stderr, "recording %s...\n", dur)
-	if err := cap.Start(); err != nil {
+	// Optional second arg selects the microphone, same matching as the
+	// per-hotkey "microphone" config field.
+	mic := ""
+	if len(args) > 1 {
+		mic = args[1]
+	}
+
+	device, err := cap.Start(mic)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "start: %v\n", err)
 		return 1
 	}
+	fmt.Fprintf(os.Stderr, "recording %s from %q...\n", dur, device)
 	time.Sleep(dur)
 	samples, err := cap.Stop()
 	if err != nil {

@@ -105,6 +105,28 @@ Each hotkey binds a combo (at least one modifier + one key, e.g. `ctrl+alt+space
 
 Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–`9`, `f1`–`f12`, arrows, `space`, `tab`, `enter`, `esc`.
 
+#### Picking a microphone
+
+By default recording uses the system default input. To pin a hotkey to a specific microphone, list the available devices:
+
+```
+$ gosaid mic list
+* MacBook Pro Microphone
+  USB PnP Sound Device
+```
+
+and set the hotkey's `microphone` field to the device name — a case-insensitive substring is enough:
+
+```json
+"ctrl+alt+space": {
+  "mode": "hold",
+  "microphone": "usb pnp",
+  "transcribe": { "model": "local:turbo" }
+}
+```
+
+If the device isn't connected when recording starts, GoSaid falls back to the system default (and logs a warning) rather than failing the dictation.
+
 ### Pipeline stages
 
 A hotkey runs up to three stages in order: `transcribe` → (`enhance` or `compose`) → `translate`. Only `transcribe` is required.

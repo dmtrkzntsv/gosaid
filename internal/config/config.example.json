@@ -17,6 +17,7 @@
   "hotkeys": {
     "option+left": {
       "mode": "hold",
+      "microphone": "",
       "transcribe": {
         "model": "openai:whisper-1",
         "output_language": ""
