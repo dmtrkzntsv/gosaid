@@ -247,6 +247,25 @@ func TestValidateWhisperCPPValid(t *testing.T) {
 	}
 }
 
+func TestValidateWhisperCPPUnloadAfterSeconds(t *testing.T) {
+	cfg := whisperTestConfig(t, tempModelFile(t))
+	cfg.Drivers[1].Endpoints[0].Config.UnloadAfterSeconds = 300
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("expected valid, got: %v", err)
+	}
+
+	cfg.Drivers[1].Endpoints[0].Config.UnloadAfterSeconds = -1
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "unload_after_seconds") {
+		t.Fatalf("expected negative unload_after_seconds error, got: %v", err)
+	}
+
+	cfg = whisperTestConfig(t, tempModelFile(t))
+	cfg.Drivers[0].Endpoints[0].Config.UnloadAfterSeconds = 300
+	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "whisper_cpp") {
+		t.Fatalf("expected whisper_cpp-only error, got: %v", err)
+	}
+}
+
 func TestValidateWhisperCPPEmptyModels(t *testing.T) {
 	cfg := whisperTestConfig(t, tempModelFile(t))
 	cfg.Drivers[1].Endpoints[0].Config.Models = nil

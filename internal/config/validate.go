@@ -53,9 +53,15 @@ func Validate(cfg *Config) error {
 				if e.Config.APIKey == "" {
 					return fmt.Errorf("endpoint %q: api_key is required", e.ID)
 				}
+				if e.Config.UnloadAfterSeconds != 0 {
+					return fmt.Errorf("endpoint %q: unload_after_seconds only applies to whisper_cpp endpoints", e.ID)
+				}
 			case DriverWhisperCPP:
 				if len(e.Config.Models) == 0 {
 					return fmt.Errorf("endpoint %q: a non-empty models map is required for whisper_cpp", e.ID)
+				}
+				if e.Config.UnloadAfterSeconds < 0 {
+					return fmt.Errorf("endpoint %q: unload_after_seconds must not be negative", e.ID)
 				}
 				for name, p := range e.Config.Models {
 					abs, err := ExpandPath(p)

@@ -149,6 +149,26 @@ gosaid model download ggerganov/whisper.cpp ggml-base.bin
 - `base` (~140 MB) — near-instant, fine for quick English notes; weaker on
   non-English speech and proper nouns.
 
+Loaded models stay resident in memory for instant dictation (a model's full
+weight size, e.g. ~1.7 GB for `large-v3-turbo`). To trade a few seconds of
+reload latency for memory, set `unload_after_seconds` on the endpoint to free
+models after that long without dictation:
+
+```json
+{
+  "driver": "whisper_cpp",
+  "endpoints": [
+    {
+      "id": "local",
+      "config": {
+        "models": { "base": "/path/to/models/ggml-base.bin" },
+        "unload_after_seconds": 300
+      }
+    }
+  ]
+}
+```
+
 Tips:
 
 - Dictating in a non-English language? Go straight to turbo — small models
