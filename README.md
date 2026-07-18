@@ -1,12 +1,13 @@
 # GoSaid
 
-**Dictate in your native language, get text in another one.** Set up a hotkey that transcribes your speech and translates it on the fly — so you can speak your language and insert English (or any other) straight into the app under your cursor.
+**Dictate in your native language, get polished text in another one.** Press a hotkey, speak, and GoSaid transcribes your speech, cleans it up, translates it — and types the result straight into the app under your cursor.
 
-Designed to stay **lightweight with as few dependencies as possible**: transcription and translation run against any OpenAI-compatible cloud API (OpenAI, Groq, OpenRouter, Together, DeepSeek, and similar), so the daemon itself is a small static binary that ships as a single file, starts instantly, and idles with a negligible footprint — no bundled models, no UI, no background services beyond the one process.
+- **Local or cloud** — run Whisper fully on-device via embedded whisper.cpp (no API key, no network), or use any OpenAI-compatible API (OpenAI, Groq, OpenRouter, DeepSeek, Together, …).
+- **Lightweight** — a single static binary. No UI, no bundled runtimes, just one small background process.
 
-> **Platform status:** Actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
+> **Platform status:** actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
 
-## Install
+## Installation
 
 ### macOS & Linux (Homebrew)
 
@@ -16,232 +17,123 @@ gosaid config                  # paste your API key, save
 brew services start gosaid     # runs in background, auto-starts at login
 ```
 
-Upgrade with `brew upgrade gosaid`. Stop with `brew services stop gosaid`.
+Upgrade with `brew upgrade gosaid`, stop with `brew services stop gosaid`.
+
+- **macOS:** grant **Accessibility** (prompted on first hotkey press) and **Microphone** (first recording).
+- **Linux:** install a keystroke-injection tool: `wtype` (Wayland), `xdotool` (X11), or `ydotool` (either, needs its daemon running).
 
 ### Windows
 
-1. Download and extract `gosaid-<version>-windows-amd64.zip` from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest).
-2. Move `gosaid.exe` to a folder on your `PATH` (e.g. `C:\Users\<you>\bin\`, then add it via System Properties → Environment Variables).
-3. SmartScreen will warn "Windows protected your PC" on first run — click **More info → Run anyway**. (The Windows binary is unsigned in v1.)
-4. Configure and run: `gosaid config` then `gosaid`.
+1. Download `gosaid-<version>-windows-amd64.zip` from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest), extract, and put `gosaid.exe` on your `PATH`.
+2. SmartScreen will warn on first run (the binary is unsigned in v1) — click **More info → Run anyway**.
+3. Run `gosaid config`, then `gosaid`.
 
-> Prefer a raw binary on macOS/Linux, or want to build from source? See [Manual installation](#manual-installation) at the bottom.
+> Prefer a raw binary or building from source? See [Manual installation](#manual-installation).
 
 ## Configuration
 
-Config is a single JSON file. Run `gosaid config` to open it in `$EDITOR`, or edit directly:
+Config is a single JSON file — run `gosaid config` to open it in `$EDITOR`. A complete annotated sample lives at [`internal/config/config.example.json`](internal/config/config.example.json).
 
 | Platform | Path |
 |---|---|
 | macOS | `~/Library/Application Support/gosaid/config.json` |
-| Linux | `$XDG_CONFIG_HOME/gosaid/config.json` (or `~/.config/gosaid/config.json`) |
+| Linux | `~/.config/gosaid/config.json` |
 | Windows | `%AppData%\gosaid\config.json` |
 
-A complete annotated sample lives at [`internal/config/config.example.json`](internal/config/config.example.json).
-
-### Provider
-
-Declare one or more API endpoints. Each endpoint has an `id` you reference later in hotkey `model` strings as `<endpoint_id>:<model>`.
-
-```json
-"drivers": [
-  {
-    "driver": "openai_compatible",
-    "endpoints": [
-      {
-        "id": "openai",
-        "config": {
-          "api_base": "https://api.openai.com/v1",
-          "api_key": "sk-..."
-        }
-      }
-    ]
-  }
-]
-```
-
-Any OpenAI-compatible cloud API works — swap `api_base` and `api_key` for Groq, OpenRouter, DeepSeek, Together, etc. Add more endpoints to the same `endpoints` array to mix providers (e.g. Groq for transcription, OpenAI for enhancement).
-
-### Hotkey
-
-Bind a key combo to a recording mode and one or more pipeline stages:
-
-```json
-"hotkeys": {
-  "ctrl+alt+space": {
-    "mode": "hold",
-    "transcribe": { "model": "openai:whisper-1" }
-  }
-}
-```
-
-**Modes:**
-- `hold` — record while the combo is held; release to stop.
-- `toggle` — press once to start, press again to stop. Capped by the top-level `toggle_max_seconds`.
-
-**Combo syntax** (case-insensitive, joined by `+`, at least one modifier + one key):
-
-- Modifiers: `ctrl` (alias `control`), `shift`, `alt` (macOS alias `option`), `cmd` (aliases `command`, `super`; Windows alias `win`).
-- Keys: `a`–`z`, `0`–`9`, `f1`–`f12`, `left`, `right`, `up`, `down`, `space`, `tab`, `enter`, `esc`.
-- Examples: `ctrl+alt+space`, `cmd+shift+r`, `ctrl+alt+f1`.
-
-### Modes
-
-A hotkey runs up to three stages in order: `transcribe` → (`compose` | `enhance`) → `translate`. `transcribe` is required; the others are optional. `compose` and `enhance` are mutually exclusive — if both are set, `compose` wins and `enhance` is skipped.
-
-Each optional stage accepts an `"enable": false` field to skip it without removing the block — useful for toggling behavior during iteration. Omitting the field, or setting `"enable": true`, means the stage runs as normal. When a stage is disabled, its other fields are not validated, so you can keep a half-written block as a scaffold.
-
-**Transcribe** — speech to text.
-
-```json
-"transcribe": {
-  "model": "openai:whisper-1",
-  "input_language": "en",
-  "output_language": "en"
-}
-```
-
-`input_language` is an optional ISO 639-1 hint for Whisper. `output_language: "en"` activates Whisper's native English fast-path; for other targets, chain a `translate` stage.
-
-### Local transcription (no cloud)
-
-The transcribe stage can run fully locally via embedded whisper.cpp — no API
-key, no network. Download a GGML model from Hugging Face and it is registered
-in your config automatically:
-
-```
-gosaid model download ggerganov/whisper.cpp ggml-base.bin
-```
-
-This creates a `whisper_cpp` driver block:
+A minimal working config — one provider, one push-to-talk hotkey:
 
 ```json
 {
-  "driver": "whisper_cpp",
-  "endpoints": [
+  "drivers": [
     {
-      "id": "local",
-      "config": {
-        "models": { "base": "/path/to/models/ggml-base.bin" }
-      }
+      "driver": "openai_compatible",
+      "endpoints": [
+        {
+          "id": "openai",
+          "config": {
+            "api_base": "https://api.openai.com/v1",
+            "api_key": "sk-..."
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "hotkeys": {
+    "ctrl+alt+space": {
+      "mode": "hold",
+      "transcribe": { "model": "openai:whisper-1" }
+    }
+  }
 }
 ```
 
-Reference it from a hotkey like any other endpoint:
+Any OpenAI-compatible API works — swap `api_base`/`api_key` for Groq, OpenRouter, DeepSeek, etc. Add more endpoints to mix providers; models are referenced as `<endpoint_id>:<model>`.
 
-```json
-"transcribe": { "model": "local:base" }
-```
+### Local transcription (no cloud)
 
-Recommended models (best first):
+Transcription can run fully locally via embedded whisper.cpp — no API key, no network. Download a GGML model and it's registered in your config automatically as the `local` endpoint:
 
 ```
 gosaid model download ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin --name turbo
-gosaid model download ggerganov/whisper.cpp ggml-small.bin
-gosaid model download ggerganov/whisper.cpp ggml-base.bin
 ```
 
-- `large-v3-turbo-q5_0` (~550 MB) — near large-v3 accuracy at a fraction of the
-  latency; the best choice for dictation, especially in non-English languages.
-- `small` (~460 MB) — balanced multilingual fallback, fast even on plain CPU.
-- `base` (~140 MB) — near-instant, fine for quick English notes; weaker on
-  non-English speech and proper nouns.
+Then use it in a hotkey: `"transcribe": { "model": "local:turbo" }`.
 
-Tips:
+| Model | Size | When to use |
+|---|---|---|
+| `ggml-large-v3-turbo-q5_0.bin` | ~550 MB | Best accuracy/latency balance — the default choice, especially for non-English speech |
+| `ggml-small.bin` | ~460 MB | Balanced multilingual fallback, fast on plain CPU |
+| `ggml-base.bin` | ~140 MB | Near-instant; fine for quick English notes |
 
-- Dictating in a non-English language? Go straight to turbo — small models
-  degrade fastest outside English.
-- English only? The `.en` variants (`ggml-small.en.bin`, `ggml-tiny.en.bin`)
-  punch a size class above their multilingual siblings.
-- Quantized variants (`-q5_0`, `-q5_1`, `-q8_0` suffixes in the same repo) are
-  ~3× smaller at roughly the same accuracy — prefer them at medium size and up.
-- Hotkeys pin models, so a nice setup is two bindings: turbo on your main
-  dictation hotkey, base on a scratch hotkey for throwaway notes.
+On macOS inference runs on the GPU (Metal). Local models cover **transcription only** — `enhance`, `compose`, and `translate` need an OpenAI-compatible endpoint (cloud, or a local server like Ollama).
 
-Notes:
+### Hotkeys
 
-- The model loads on first use and stays in memory.
-- On macOS inference runs on the GPU (Metal); elsewhere on CPU.
-- Local models cover **transcription only** — `enhance`, `compose`, and
-  `translate` still need an OpenAI-compatible endpoint (cloud, or a local
-  server like Ollama via `api_base`).
-- `--name`, `--endpoint`, and `--force` flags customize registration; any
-  Hugging Face repo/file that hosts GGML whisper models works.
+Each hotkey binds a combo (at least one modifier + one key, e.g. `ctrl+alt+space`, `cmd+shift+r`) to a recording mode:
 
-**Enhance** — strips speech disfluencies ("um", "uh", false starts, repeats) without changing meaning or style.
+- `hold` — record while held, release to stop.
+- `toggle` — press to start, press again to stop.
+
+Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–`9`, `f1`–`f12`, arrows, `space`, `tab`, `enter`, `esc`.
+
+### Pipeline stages
+
+A hotkey runs up to three stages in order: `transcribe` → (`enhance` or `compose`) → `translate`. Only `transcribe` is required.
+
+| Stage | What it does |
+|---|---|
+| `transcribe` | Speech to text. Optional `input_language` (ISO 639-1 hint) and `output_language` |
+| `enhance` | Strips "um"s, false starts, and repeats without changing meaning or style |
+| `compose` | Treats your speech as an instruction and writes the artifact — *"write a polite email to Alice asking to reschedule to Thursday"*. Optional `instructions` field adds a per-hotkey style directive |
+| `translate` | Renders the result in another language (`output_language`) |
+
+A full pipeline — dictate in any language, get clean English typed out:
 
 ```json
-"enhance": {
-  "model": "openai:gpt-5.4-nano"
+"cmd+shift+r": {
+  "mode": "hold",
+  "transcribe": { "model": "local:turbo" },
+  "enhance":    { "model": "openai:gpt-5.4-nano" },
+  "translate":  { "model": "openai:gpt-5.4-nano", "output_language": "en" }
 }
 ```
 
-**Compose** — treats the transcript as an instruction and produces a finished written artifact (email, message, note, snippet). Dictate the task and the content in one go: *"write a polite email to Alice asking to reschedule our 3pm meeting to Thursday"*.
-
-```json
-"compose": {
-  "model": "openai:gpt-5.4-nano"
-}
-```
-
-The optional `instructions` field adds a per-hotkey directive **on top of** the built-in compose prompt (not a replacement). Pair different hotkeys with different styles — one for formal correspondence, another for casual chat:
-
-```json
-"compose": {
-  "model": "openai:gpt-5.4-nano",
-  "instructions": "Write in a formal, business-email register."
-}
-```
-
-The top-level `user_context` field lets you share personal context with the compose stage — name, role, tone preferences, anything the model should know to personalize the artifact (e.g. sign emails with your name). Write it in any single language; the model is instructed to match your instruction's language for the output and translate/transliterate names as appropriate.
-
-```json
-"user_context": "My name is Dmitry Kuznetsov, Software Engineer at Acme. Prefer friendly-professional tone; sign emails with just the first name."
-```
-
-**Translate** — render the (possibly enhanced or composed) text in another language via an LLM.
-
-```json
-"translate": {
-  "output_language": "fr",
-  "model": "openai:gpt-5.4-nano"
-}
-```
+Handy extras: any optional stage takes `"enable": false` to skip it without deleting the block, and the top-level `user_context` field gives `compose` personal context (name, role, tone, email signature).
 
 ## Manual installation
 
 Prebuilt binaries for all platforms are on the [releases page](https://github.com/dmtrkzntsv/gosaid/releases/latest).
 
-### macOS (arm64 / amd64)
+### macOS / Linux
 
 ```
-tar -xzf gosaid-<version>-darwin-arm64.tar.gz   # or -amd64
-sudo mv gosaid-<version>-darwin-arm64/gosaid /usr/local/bin/
+tar -xzf gosaid-<version>-<os>-<arch>.tar.gz
+sudo mv gosaid-<version>-<os>-<arch>/gosaid /usr/local/bin/
 gosaid config
 gosaid                         # foreground; Ctrl+C to stop
 ```
 
-The macOS binary is signed and notarized — no Gatekeeper warning. First hotkey press prompts for **Accessibility**; first record prompts for **Microphone**.
-
-> Running an unsigned `./gosaid` from source? The TCC subject is your **terminal app**, not gosaid — grant Microphone (and Accessibility) to Terminal/iTerm/Ghostty in System Settings → Privacy & Security.
-
-### Linux (amd64 / arm64)
-
-```
-tar -xzf gosaid-<version>-linux-amd64.tar.gz
-sudo mv gosaid-<version>-linux-amd64/gosaid /usr/local/bin/
-sudo apt install wtype         # or xdotool / ydotool
-gosaid config
-gosaid                         # foreground
-```
-
-A keystroke-injection tool is required: `wtype` (Wayland), `xdotool` (X11), or `ydotool` (either, needs a running daemon).
-
-### Windows (amd64)
-
-Same as the [Install → Windows](#windows) section above.
+The macOS binary is signed and notarized — no Gatekeeper warning. If you run an unsigned build from source, grant Microphone and Accessibility to your **terminal app** (Terminal/iTerm/Ghostty) in System Settings → Privacy & Security.
 
 ### From source (Go 1.25+)
 
@@ -254,4 +146,4 @@ make build
 
 ## License
 
-MIT (see LICENSE).
+MIT (see [LICENSE](LICENSE)).
