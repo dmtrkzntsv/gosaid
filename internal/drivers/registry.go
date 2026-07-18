@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
@@ -24,7 +25,8 @@ func BuildRegistry(cfg *config.Config) (*Registry, error) {
 			case config.DriverOpenAICompatible:
 				r.endpoints[e.ID] = NewOpenAICompatible(e.Config.APIBase, e.Config.APIKey)
 			case config.DriverWhisperCPP:
-				r.endpoints[e.ID] = NewWhisperCPP(e.Config.Models)
+				r.endpoints[e.ID] = NewWhisperCPP(e.Config.Models,
+					time.Duration(e.Config.UnloadAfterSeconds)*time.Second)
 			default:
 				return nil, fmt.Errorf("unsupported driver type %q", d.Driver)
 			}

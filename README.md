@@ -87,6 +87,15 @@ Then use it in a hotkey: `"transcribe": { "model": "local:turbo" }`.
 
 On macOS inference runs on the GPU (Metal). Local models cover **transcription only** — `enhance`, `compose`, and `translate` need an OpenAI-compatible endpoint (cloud, or a local server like Ollama).
 
+Loaded models stay resident in memory for instant dictation (the model's full weight size, e.g. ~1.7 GB for un-quantized `large-v3-turbo`). To trade a few seconds of reload latency for that memory, set `unload_after_seconds` in the endpoint's config — an idle model is freed after that long and reloads on the next dictation:
+
+```json
+"config": {
+  "models": { "turbo": "/path/to/models/ggml-large-v3-turbo-q5_0.bin" },
+  "unload_after_seconds": 300
+}
+```
+
 ### Hotkeys
 
 Each hotkey binds a combo (at least one modifier + one key, e.g. `ctrl+alt+space`, `cmd+shift+r`) to a recording mode:

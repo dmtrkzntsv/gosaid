@@ -32,6 +32,10 @@ type EndpointConfig struct {
 	APIBase string            `json:"api_base,omitempty"`
 	APIKey  string            `json:"api_key,omitempty"`
 	Models  map[string]string `json:"models,omitempty"`
+	// UnloadAfterSeconds (whisper_cpp only) frees a loaded model after this
+	// many seconds without use; it reloads lazily on the next dictation.
+	// 0 or absent keeps models resident once loaded.
+	UnloadAfterSeconds int `json:"unload_after_seconds,omitempty"`
 }
 
 type HotkeyMode string
