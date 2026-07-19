@@ -1,5 +1,7 @@
 package config
 
+import "sort"
+
 // Subset of ISO 639-1 codes. Extend as needed — Whisper supports ~99 languages
 // but most users will touch a handful. Keys are lowercase codes.
 var languageNames = map[string]string{
@@ -52,4 +54,14 @@ func LanguageName(code string) string {
 		return n
 	}
 	return code
+}
+
+// Languages returns all known language codes, sorted.
+func Languages() []string {
+	codes := make([]string, 0, len(languageNames))
+	for c := range languageNames {
+		codes = append(codes, c)
+	}
+	sort.Strings(codes)
+	return codes
 }
