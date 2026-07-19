@@ -45,34 +45,52 @@ func runModelFlow(s *Session) error {
 		opts = append(opts, huh.NewOption(name+" · custom", name).Selected(true))
 	}
 
+	// Offer the custom-model prompt as a row in the list rather than a
+	// separate question, so the whole screen is one checklist.
+	opts = append(opts, huh.NewOption("+ Add a model from a Hugging Face link", pickAdd))
+
 	var selected []string
 	for name := range registered {
 		selected = append(selected, name)
 	}
-	addCustom := false
+	// Each field gets its own group: sharing one group squeezes the
+	// multi-select's viewport until its rows scroll out of view entirely.
 	apply := true
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewMultiSelect[string]().
-			Title("Local Whisper models").
-			Description("Checked models are kept; unchecking removes them. New checks download from Hugging Face.").
-			Options(opts...).
-			Value(&selected),
-		huh.NewConfirm().
-			Title("Add a custom model from Hugging Face?").
-			Value(&addCustom),
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Local Whisper models").
+				Description("Space toggles. Checked models are kept; unchecking removes them. New checks download from Hugging Face.").
+				Options(opts...).
+				Value(&selected),
+		),
 		// A multi-select can't hold a "← Back" entry without it reading as a
 		// checkbox, so backing out is an explicit step of its own.
-		huh.NewConfirm().
-			Title("Apply these model changes?").
-			Affirmative("Apply").Negative("← Back").
-			Value(&apply),
-	))
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Apply these model changes?").
+				Affirmative("Apply").Negative("← Back").
+				Value(&apply),
+		),
+	)
 	if err := form.Run(); err != nil {
 		return cancelable(err)
 	}
 	if !apply {
 		return errCancelStep
 	}
+
+	// The custom-model row is an action, not a model to register.
+	addCustom := false
+	kept := selected[:0]
+	for _, name := range selected {
+		if name == pickAdd {
+			addCustom = true
+			continue
+		}
+		kept = append(kept, name)
+	}
+	selected = kept
 
 	diff := DiffModelSelection(registered, selected)
 	modelsDir, err := platform.ModelsDir()
@@ -156,6 +174,13 @@ func runModelFlow(s *Session) error {
 		if err := absorbCancel(runCustomModelPrompt(s, modelsDir)); err != nil {
 			return err
 		}
+	}
+	// Reached by picking Local Whisper as a provider and then checking
+	// nothing: the endpoint has no models, so it isn't a usable provider and
+	// the config wouldn't validate. Say so rather than letting the save fail
+	// with a bare validator message later.
+	if len(models.RegisteredModels(s.Cfg, localEndpointID)) == 0 {
+		fmt.Println("No local models selected — local transcription needs at least one.")
 	}
 	return nil
 }

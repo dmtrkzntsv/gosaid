@@ -63,6 +63,42 @@ func TestPickSentinelsAreNotValidInput(t *testing.T) {
 	}
 }
 
+// The model checklist carries "+ Add a model from a Hugging Face link" as a
+// pickAdd row. That row is an action, not a model name — if it ever reached
+// DiffModelSelection it would be treated as a model to download and register,
+// putting a NUL-prefixed name into the config.
+func TestModelSelectionDropsTheAddRow(t *testing.T) {
+	registered := map[string]string{"turbo": "/m/ggml-large-v3-turbo-q5_0.bin"}
+	selected := []string{"turbo", pickAdd, "small"}
+
+	// Same filter the flow applies before diffing.
+	addCustom := false
+	kept := selected[:0]
+	for _, name := range selected {
+		if name == pickAdd {
+			addCustom = true
+			continue
+		}
+		kept = append(kept, name)
+	}
+
+	if !addCustom {
+		t.Error("checking the add row should trigger the custom-model prompt")
+	}
+	d := DiffModelSelection(registered, kept)
+	for _, name := range append(append([]string{}, d.Add...), d.Remove...) {
+		if name == pickAdd {
+			t.Fatalf("the add row leaked into the diff as %q", name)
+		}
+	}
+	if len(d.Add) != 1 || d.Add[0] != "small" {
+		t.Errorf("Add = %v, want [small]", d.Add)
+	}
+	if len(d.Remove) != 0 {
+		t.Errorf("Remove = %v, want none — turbo stayed checked", d.Remove)
+	}
+}
+
 // The sentinel must never reach Run's error printing: uncancel(absorbCancel(x))
 // is what a topic flow and the hub both end up applying.
 func TestSentinelNeverEscapesToRun(t *testing.T) {
