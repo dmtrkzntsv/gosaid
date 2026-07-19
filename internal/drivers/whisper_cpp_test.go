@@ -59,10 +59,10 @@ func TestWhisperCPPConcurrentModelAccess(t *testing.T) {
 	wg.Wait()
 
 	// A failed load must not be cached: the model stays absent from the map.
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if len(d.loaded) != 0 {
-		t.Fatalf("expected no models cached after failed loads, got %d", len(d.loaded))
+	d.cache.mu.Lock()
+	defer d.cache.mu.Unlock()
+	if len(d.cache.loaded) != 0 {
+		t.Fatalf("expected no models cached after failed loads, got %d", len(d.cache.loaded))
 	}
 }
 
@@ -140,7 +140,7 @@ func transcribeOK(t *testing.T, d *WhisperCPP) {
 func TestWhisperCPPUnloadAfterIdle(t *testing.T) {
 	l := &fakeLoader{}
 	d := NewWhisperCPP(map[string]string{"base": "/tmp/x.bin"}, 20*time.Millisecond)
-	d.load = l.load
+	d.cache.load = l.load
 
 	transcribeOK(t, d)
 	if l.loadCount() != 1 {
@@ -159,7 +159,7 @@ func TestWhisperCPPUnloadAfterIdle(t *testing.T) {
 func TestWhisperCPPUnloadDisabled(t *testing.T) {
 	l := &fakeLoader{}
 	d := NewWhisperCPP(map[string]string{"base": "/tmp/x.bin"}, 0)
-	d.load = l.load
+	d.cache.load = l.load
 
 	transcribeOK(t, d)
 	time.Sleep(80 * time.Millisecond)
@@ -178,7 +178,7 @@ func TestWhisperCPPUnloadDisabled(t *testing.T) {
 func TestWhisperCPPUnloadSkipsInflight(t *testing.T) {
 	l := &fakeLoader{delay: 100 * time.Millisecond}
 	d := NewWhisperCPP(map[string]string{"base": "/tmp/x.bin"}, 30*time.Millisecond)
-	d.load = l.load
+	d.cache.load = l.load
 
 	transcribeOK(t, d) // arms the idle timer on release
 	transcribeOK(t, d) // slow run; timer fires while in flight
