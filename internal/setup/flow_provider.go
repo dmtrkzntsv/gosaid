@@ -31,7 +31,8 @@ func runProviderFlow(s *Session) error {
 		)
 		var choice string
 		if err := huh.NewForm(huh.NewGroup(
-			huh.NewSelect[string]().Title("Providers").Options(opts...).Value(&choice),
+			huh.NewSelect[string]().Title("Providers").Options(opts...).
+				Height(listHeight(len(opts))).Value(&choice),
 		)).Run(); err != nil {
 			return cancelable(err)
 		}
@@ -71,7 +72,7 @@ func runProviderActions(s *Session, id string) error {
 			huh.NewOption("Edit", "edit"),
 			huh.NewOption("Delete", "delete"),
 			huh.NewOption("← Back", "back"),
-		).Value(&action),
+		).Height(listHeight(3)).Value(&action),
 	)).Run(); err != nil {
 		return cancelable(err)
 	}
@@ -142,7 +143,7 @@ func runDeleteProvider(s *Session, id string) error {
 				huh.NewSelect[string]().
 					Title(fmt.Sprintf("Hotkeys using %q: %s", id, strings.Join(refs, ", "))).
 					Description("Pick a replacement provider for them.").
-					Options(opts...).Value(&reassignTo),
+					Options(opts...).Height(listHeight(len(opts))).Value(&reassignTo),
 			)).Run(); err != nil {
 				return cancelable(err)
 			}
@@ -198,7 +199,8 @@ func runAddProvider(s *Session) error {
 	}
 	presetOpts = append(presetOpts, huh.NewOption("← Back", pickBack))
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Add a provider").Options(presetOpts...).Value(&presetKey),
+		huh.NewSelect[string]().Title("Add a provider").Options(presetOpts...).
+			Height(listHeight(len(presetOpts))).Value(&presetKey),
 	)).Run(); err != nil {
 		return cancelable(err)
 	}

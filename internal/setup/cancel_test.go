@@ -63,6 +63,27 @@ func TestPickSentinelsAreNotValidInput(t *testing.T) {
 	}
 }
 
+// huh subtracts a field's rendered title and description from the height it
+// is given, so a list sized to its option count collapses — in the worst case
+// to one visible row, which is what shipped before this helper existed.
+func TestListHeightLeavesRoomForChrome(t *testing.T) {
+	for _, n := range []int{1, 2, 3, 5} {
+		if got := listHeight(n); got <= n {
+			t.Errorf("listHeight(%d) = %d, must exceed the option count to "+
+				"survive huh subtracting the title and description", n, got)
+		}
+	}
+	// Long lists (the ~36-language picker) must stay scrollable rather than
+	// demanding more rows than a terminal has.
+	if got := listHeight(200); got > 20 {
+		t.Errorf("listHeight(200) = %d, want a capped, scrollable height", got)
+	}
+	// The cap must still be usable, not collapse back to a sliver.
+	if got := listHeight(200); got < 8 {
+		t.Errorf("listHeight(200) = %d, too small to browse", got)
+	}
+}
+
 // The model checklist carries "+ Add a model from a Hugging Face link" as a
 // pickAdd row. That row is an action, not a model name — if it ever reached
 // DiffModelSelection it would be treated as a model to download and register,

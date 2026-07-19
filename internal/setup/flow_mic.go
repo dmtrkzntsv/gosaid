@@ -31,11 +31,13 @@ func runMicFlow(s *Session) error {
 		return err
 	}
 	choice := s.Cfg.Microphone
+	opts = append(opts, huh.NewOption("← Back", pickBack))
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Microphone").
 			Description("Used by every hotkey unless the hotkey sets its own microphone.").
-			Options(append(opts, huh.NewOption("← Back", pickBack))...).
+			Options(opts...).
+			Height(listHeight(len(opts))).
 			Value(&choice),
 	))
 	if err := form.Run(); err != nil {

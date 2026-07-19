@@ -60,8 +60,9 @@ func runModelFlow(s *Session) error {
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Local Whisper models").
-				Description("Space toggles. Checked models are kept; unchecking removes them. New checks download from Hugging Face.").
+				Description("Space toggles a model. Unchecked models are removed.").
 				Options(opts...).
+				Height(listHeight(len(opts))).
 				Value(&selected),
 		),
 		// A multi-select can't hold a "← Back" entry without it reading as a

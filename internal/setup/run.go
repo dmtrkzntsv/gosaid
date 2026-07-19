@@ -78,6 +78,21 @@ func Run(args []string) int {
 // it must never reach Run, which would end the whole session.
 var errCancelStep = errors.New("step cancelled")
 
+// listHeight sizes a select/multi-select so every option is visible.
+//
+// huh subtracts the rendered title and description from the height it is
+// given, so a field sized to len(options) collapses — in the worst case to a
+// single row. Budget for the chrome, and cap the result so a long list (the
+// language picker) still scrolls instead of running off the screen.
+func listHeight(options int) int {
+	const chrome, max = 4, 16
+	h := options + chrome
+	if h > max {
+		return max
+	}
+	return h
+}
+
 // cancelable converts a form's user-abort into errCancelStep. Wrap every
 // prompt that sits inside a manager loop so Esc backs out one level instead
 // of quitting setup.

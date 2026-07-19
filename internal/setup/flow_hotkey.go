@@ -37,7 +37,8 @@ func runHotkeyFlow(s *Session) error {
 		)
 		var choice string
 		if err := huh.NewForm(huh.NewGroup(
-			huh.NewSelect[string]().Title("Hotkeys").Options(opts...).Value(&choice),
+			huh.NewSelect[string]().Title("Hotkeys").Options(opts...).
+				Height(listHeight(len(opts))).Value(&choice),
 		)).Run(); err != nil {
 			return cancelable(err)
 		}
@@ -65,7 +66,7 @@ func runHotkeyActions(s *Session, combo string) error {
 			huh.NewOption("Edit", "edit"),
 			huh.NewOption("Delete", "delete"),
 			huh.NewOption("← Back", "back"),
-		).Value(&action),
+		).Height(listHeight(3)).Value(&action),
 	)).Run(); err != nil {
 		return cancelable(err)
 	}
@@ -108,7 +109,8 @@ func askCombo(s *Session) (string, error) {
 	)
 	var choice string
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Key combo").Options(opts...).Value(&choice),
+		huh.NewSelect[string]().Title("Key combo").Options(opts...).
+			Height(listHeight(len(opts))).Value(&choice),
 	)).Run(); err != nil {
 		return "", cancelable(err)
 	}
@@ -167,7 +169,8 @@ func askModelRef(s *Session, title string, options []ModelOption) (string, error
 		}
 		opts = append(opts, huh.NewOption("← Back", pickBack))
 		if err := huh.NewForm(huh.NewGroup(
-			huh.NewSelect[string]().Title(title).Options(opts...).Value(&choice),
+			huh.NewSelect[string]().Title(title).Options(opts...).
+				Height(listHeight(len(opts))).Value(&choice),
 		)).Run(); err != nil {
 			return "", cancelable(err)
 		}
@@ -182,18 +185,25 @@ func askModelRef(s *Session, title string, options []ModelOption) (string, error
 		return "", fmt.Errorf("no endpoint can serve %q — add a provider first", title)
 	}
 	endpointID := ids[0]
-	var fields []huh.Field
+	// Endpoint and model id go in separate groups: a select sharing a group
+	// with another field loses viewport height to it and can clip its options.
+	var groups []*huh.Group
 	if len(ids) > 1 {
 		var opts []huh.Option[string]
 		for _, id := range ids {
 			opts = append(opts, huh.NewOption(id, id))
 		}
-		fields = append(fields, huh.NewSelect[string]().Title(title+" — endpoint").Options(opts...).Value(&endpointID))
+		groups = append(groups, huh.NewGroup(
+			huh.NewSelect[string]().Title(title+" — endpoint").Options(opts...).
+				Height(listHeight(len(opts))).Value(&endpointID),
+		))
 	}
 	var model string
-	fields = append(fields, huh.NewInput().Title(title+" — model id").
-		Validate(requireNonEmpty("model id")).Value(&model))
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	groups = append(groups, huh.NewGroup(
+		huh.NewInput().Title(title+" — model id").
+			Validate(requireNonEmpty("model id")).Value(&model),
+	))
+	if err := huh.NewForm(groups...).Run(); err != nil {
 		return "", cancelable(err)
 	}
 	return endpointID + ":" + strings.TrimSpace(model), nil
@@ -231,7 +241,9 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 	recipeOpts = append(recipeOpts, huh.NewOption("← Back", pickBack))
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Recipe").Description(desc).
-			Options(recipeOpts...).Value(&a.Recipe),
+			Options(recipeOpts...).
+			Height(listHeight(len(recipeOpts))).
+			Value(&a.Recipe),
 	)).Run(); err != nil {
 		return cancelable(err)
 	}
@@ -260,7 +272,8 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 		}
 		langOpts = append(langOpts, huh.NewOption("← Back", pickBack))
 		if err := huh.NewForm(huh.NewGroup(
-			huh.NewSelect[string]().Title("Translate to").Options(langOpts...).Value(&a.TargetLang),
+			huh.NewSelect[string]().Title("Translate to").Options(langOpts...).
+				Height(listHeight(len(langOpts))).Value(&a.TargetLang),
 		)).Run(); err != nil {
 			return cancelable(err)
 		}
@@ -279,15 +292,23 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 	}
 
 	advanced := false
-	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Mode").
-			Description("Hold: record while pressed. Toggle: press to start, press to stop.").
-			Options(
-				huh.NewOption("Hold (push-to-talk)", string(config.ModeHold)),
-				huh.NewOption("Toggle", string(config.ModeToggle)),
-			).Value(&a.Mode),
-		huh.NewConfirm().Title("Set a hotkey-specific microphone?").Value(&advanced),
-	)).Run(); err != nil {
+	if err := huh.NewForm(
+		// Separate groups: a select sharing a group with another field loses
+		// viewport height to it and can clip its own options.
+		huh.NewGroup(
+			huh.NewSelect[string]().Title("Mode").
+				Description("Hold: record while pressed. Toggle: press to start, press to stop.").
+				Options(
+					huh.NewOption("Hold (push-to-talk)", string(config.ModeHold)),
+					huh.NewOption("Toggle", string(config.ModeToggle)),
+				).
+				Height(listHeight(2)).
+				Value(&a.Mode),
+		),
+		huh.NewGroup(
+			huh.NewConfirm().Title("Set a hotkey-specific microphone?").Value(&advanced),
+		),
+	).Run(); err != nil {
 		return cancelable(err)
 	}
 	if advanced {
@@ -295,10 +316,12 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 		if err != nil {
 			return err
 		}
+		opts = append(opts, huh.NewOption("← Back", pickBack))
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().Title("Microphone for this hotkey").
 				Description("Overrides the global default for this hotkey only.").
-				Options(append(opts, huh.NewOption("← Back", pickBack))...).
+				Options(opts...).
+				Height(listHeight(len(opts))).
 				Value(&a.Microphone),
 		)).Run(); err != nil {
 			return cancelable(err)

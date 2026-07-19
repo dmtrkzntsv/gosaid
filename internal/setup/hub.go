@@ -24,7 +24,7 @@ func runHub(s *Session) error {
 				huh.NewOption("Hotkeys", "hotkey"),
 				huh.NewOption("Microphone", "mic"),
 				huh.NewOption("Exit", "exit"),
-			).Value(&choice),
+			).Height(listHeight(4)).Value(&choice),
 		)).Run(); err != nil {
 			return err
 		}
