@@ -61,7 +61,7 @@ func runModelFlow(s *Session) error {
 			Value(&addCustom),
 	))
 	if err := form.Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 
 	diff := DiffModelSelection(registered, selected)
@@ -110,7 +110,7 @@ func runModelFlow(s *Session) error {
 					Value(&proceed),
 			)).Run()
 			if err != nil {
-				return err
+				return cancelable(err)
 			}
 			if !proceed {
 				continue
@@ -134,7 +134,7 @@ func runModelFlow(s *Session) error {
 				Value(&deleteFiles),
 		)).Run()
 		if err != nil {
-			return err
+			return cancelable(err)
 		}
 		if deleteFiles {
 			s.PendingDeletes = append(s.PendingDeletes, removedPaths...)
@@ -142,7 +142,8 @@ func runModelFlow(s *Session) error {
 	}
 
 	if addCustom {
-		if err := runCustomModelPrompt(s, modelsDir); err != nil {
+		// A cancelled custom-model prompt just skips that step.
+		if err := absorbCancel(runCustomModelPrompt(s, modelsDir)); err != nil {
 			return err
 		}
 	}
@@ -165,7 +166,7 @@ func runCustomModelPrompt(s *Session, modelsDir string) error {
 			Value(&file),
 	))
 	if err := form.Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	name := models.DeriveName(file)
 	fmt.Printf("Downloading %s…\n", name)

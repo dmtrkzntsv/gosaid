@@ -44,7 +44,9 @@ func Run(args []string) int {
 		return 1
 	}
 	for {
-		if err := flow(s); err != nil {
+		// A top-level flow that ends on a backed-out step is the user leaving
+		// setup, not an error worth printing.
+		if err := uncancel(flow(s)); err != nil {
 			if abort, ferr := confirmDiscardOnAbort(s, err); abort {
 				if ferr != nil {
 					fmt.Fprintf(os.Stderr, "error: %v\n", ferr)
@@ -69,6 +71,41 @@ func Run(args []string) int {
 		}
 		return 0
 	}
+}
+
+// errCancelStep means "the user backed out of this step" (Esc/Ctrl+C inside a
+// wizard or sub-prompt). Manager loops absorb it and re-show their list;
+// it must never reach Run, which would end the whole session.
+var errCancelStep = errors.New("step cancelled")
+
+// cancelable converts a form's user-abort into errCancelStep. Wrap every
+// prompt that sits inside a manager loop so Esc backs out one level instead
+// of quitting setup.
+func cancelable(err error) error {
+	if errors.Is(err, huh.ErrUserAborted) {
+		return errCancelStep
+	}
+	return err
+}
+
+// absorbCancel maps errCancelStep to nil, for manager loops that want to
+// continue rather than propagate a backed-out step.
+func absorbCancel(err error) error {
+	if errors.Is(err, errCancelStep) {
+		return nil
+	}
+	return err
+}
+
+// uncancel turns errCancelStep back into huh.ErrUserAborted, for callers with
+// no list to return to (the first-run chain). Run() then applies its normal
+// abort handling — discard confirm and exit — instead of seeing an internal
+// sentinel it has no rule for.
+func uncancel(err error) error {
+	if errors.Is(err, errCancelStep) {
+		return huh.ErrUserAborted
+	}
+	return err
 }
 
 // confirmSaveAfterError asks whether to save a dirty session after a

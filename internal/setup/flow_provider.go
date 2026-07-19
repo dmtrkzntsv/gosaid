@@ -33,17 +33,18 @@ func runProviderFlow(s *Session) error {
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().Title("Providers").Options(opts...).Value(&choice),
 		)).Run(); err != nil {
-			return err
+			return cancelable(err)
 		}
 		switch choice {
 		case pickBack:
 			return nil
 		case pickAdd:
-			if err := runAddProvider(s); err != nil {
+			// A cancelled sub-flow returns to this list, not out of setup.
+			if err := absorbCancel(runAddProvider(s)); err != nil {
 				return err
 			}
 		default:
-			if err := runProviderActions(s, choice); err != nil {
+			if err := absorbCancel(runProviderActions(s, choice)); err != nil {
 				return err
 			}
 		}
@@ -72,7 +73,7 @@ func runProviderActions(s *Session, id string) error {
 			huh.NewOption("← Back", "back"),
 		).Value(&action),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	switch action {
 	case "edit":
@@ -103,7 +104,7 @@ func runEditCloudProvider(s *Session, id string) error {
 		huh.NewInput().Title("API key").EchoMode(huh.EchoModePassword).
 			Validate(requireNonEmpty("api key")).Value(&apiKey),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	if err := UpdateOpenAIEndpoint(s.Cfg, id, apiBase, apiKey); err != nil {
 		return err
@@ -143,7 +144,7 @@ func runDeleteProvider(s *Session, id string) error {
 					Description("Pick a replacement provider for them.").
 					Options(opts...).Value(&reassignTo),
 			)).Run(); err != nil {
-				return err
+				return cancelable(err)
 			}
 		} else {
 			if len(refs) >= len(s.Cfg.Hotkeys) {
@@ -155,7 +156,7 @@ func runDeleteProvider(s *Session, id string) error {
 					Title(fmt.Sprintf("Also delete the hotkeys using it (%s)?", strings.Join(refs, ", "))).
 					Affirmative("Delete them").Negative("Cancel").Value(&cascade),
 			)).Run(); err != nil {
-				return err
+				return cancelable(err)
 			}
 			if !cascade {
 				return nil
@@ -168,7 +169,7 @@ func runDeleteProvider(s *Session, id string) error {
 		huh.NewConfirm().Title(fmt.Sprintf("Delete provider %q?", id)).
 			Affirmative("Delete").Negative("Cancel").Value(&confirmed),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	if !confirmed {
 		return nil
@@ -198,7 +199,7 @@ func runAddProvider(s *Session) error {
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Add a provider").Options(presetOpts...).Value(&presetKey),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	var preset ProviderPreset
 	for _, p := range ProviderPresets {
@@ -232,7 +233,7 @@ func runAddProvider(s *Session) error {
 	fields = append(fields, huh.NewInput().Title("API key").EchoMode(huh.EchoModePassword).
 		Validate(requireNonEmpty("api key")).Value(&apiKey))
 	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	if err := AddOpenAIEndpoint(s.Cfg, strings.TrimSpace(id), apiBase, apiKey); err != nil {
 		return err

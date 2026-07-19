@@ -38,17 +38,18 @@ func runHotkeyFlow(s *Session) error {
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().Title("Hotkeys").Options(opts...).Value(&choice),
 		)).Run(); err != nil {
-			return err
+			return cancelable(err)
 		}
 		switch choice {
 		case pickBack:
 			return nil
 		case pickAdd:
-			if err := runHotkeyWizard(s, nil); err != nil {
+			// A cancelled wizard returns to this list, not out of setup.
+			if err := absorbCancel(runHotkeyWizard(s, nil)); err != nil {
 				return err
 			}
 		default:
-			if err := runHotkeyActions(s, choice); err != nil {
+			if err := absorbCancel(runHotkeyActions(s, choice)); err != nil {
 				return err
 			}
 		}
@@ -65,7 +66,7 @@ func runHotkeyActions(s *Session, combo string) error {
 			huh.NewOption("← Back", "back"),
 		).Value(&action),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	switch action {
 	case "edit":
@@ -81,7 +82,7 @@ func runHotkeyActions(s *Session, combo string) error {
 			huh.NewConfirm().Title(fmt.Sprintf("Delete hotkey %q?", combo)).
 				Affirmative("Delete").Negative("Cancel").Value(&confirmed),
 		)).Run(); err != nil {
-			return err
+			return cancelable(err)
 		}
 		if confirmed {
 			DeleteHotkey(s.Cfg, combo)
@@ -100,19 +101,26 @@ func askCombo(s *Session) (string, error) {
 			opts = append(opts, huh.NewOption(c, c))
 		}
 	}
-	opts = append(opts, huh.NewOption("Type your own…", pickTypeOwn))
+	opts = append(opts,
+		huh.NewOption("Type your own…", pickTypeOwn),
+		huh.NewOption("← Back", pickBack),
+	)
 	var choice string
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Key combo").Options(opts...).Value(&choice),
 	)).Run(); err != nil {
-		return "", err
+		return "", cancelable(err)
+	}
+	if choice == pickBack {
+		return "", errCancelStep
 	}
 	if choice != pickTypeOwn {
 		return choice, nil
 	}
 	var combo string
-	err := huh.NewForm(huh.NewGroup(
+	if err := huh.NewForm(huh.NewGroup(
 		huh.NewInput().Title("Key combo").
+			Description("Esc goes back to the hotkey list.").
 			Placeholder("ctrl+alt+space").
 			Validate(func(v string) error {
 				v = strings.ToLower(strings.TrimSpace(v))
@@ -125,8 +133,10 @@ func askCombo(s *Session) (string, error) {
 				return nil
 			}).
 			Value(&combo),
-	)).Run()
-	return strings.ToLower(strings.TrimSpace(combo)), err
+	)).Run(); err != nil {
+		return "", cancelable(err)
+	}
+	return strings.ToLower(strings.TrimSpace(combo)), nil
 }
 
 // askModelRef resolves one stage's model: auto-pick a single option, select
@@ -167,7 +177,7 @@ func askModelRef(s *Session, title string, options []ModelOption) (string, error
 	fields = append(fields, huh.NewInput().Title(title+" — model id").
 		Validate(requireNonEmpty("model id")).Value(&model))
 	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
-		return "", err
+		return "", cancelable(err)
 	}
 	return endpointID + ":" + strings.TrimSpace(model), nil
 }
@@ -205,7 +215,7 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 		huh.NewSelect[string]().Title("Recipe").Description(desc).
 			Options(recipeOpts...).Value(&a.Recipe),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 
 	ref, err := askModelRef(s, "Transcription model", TranscribeModelOptions(s.Cfg))
@@ -230,7 +240,7 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().Title("Translate to").Options(langOpts...).Value(&a.TargetLang),
 		)).Run(); err != nil {
-			return err
+			return cancelable(err)
 		}
 	}
 	if a.Recipe == RecipeCompose {
@@ -239,7 +249,7 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 				Description("e.g. \"Write in a formal, business-email register.\"").
 				Value(&a.Instructions),
 		)).Run(); err != nil {
-			return err
+			return cancelable(err)
 		}
 	}
 
@@ -253,7 +263,7 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 			).Value(&a.Mode),
 		huh.NewConfirm().Title("Set a hotkey-specific microphone?").Value(&advanced),
 	)).Run(); err != nil {
-		return err
+		return cancelable(err)
 	}
 	if advanced {
 		opts, err := micOptions()
@@ -265,7 +275,7 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 				Description("Overrides the global default for this hotkey only.").
 				Options(opts...).Value(&a.Microphone),
 		)).Run(); err != nil {
-			return err
+			return cancelable(err)
 		}
 	}
 

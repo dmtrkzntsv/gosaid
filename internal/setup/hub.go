@@ -21,7 +21,7 @@ func runHub(s *Session) error {
 				huh.NewOption("Hotkeys", "hotkey"),
 				huh.NewOption("Providers", "provider"),
 				huh.NewOption("Local models", "model"),
-				huh.NewOption("Default microphone", "mic"),
+				huh.NewOption("Microphone", "mic"),
 				huh.NewOption("Done", "done"),
 			).Value(&choice),
 		)).Run(); err != nil {
@@ -40,7 +40,8 @@ func runHub(s *Session) error {
 		case "done":
 			return nil
 		}
-		if err != nil {
+		// Backing out of a manager returns to this menu, not out of setup.
+		if err := absorbCancel(err); err != nil {
 			return err
 		}
 	}
@@ -60,11 +61,14 @@ func runFirstRun(s *Session) error {
 		s.Cfg.InjectionMode = config.InjectionModePaste
 	}
 	s.Dirty = true
-	if err := runAddProvider(s); err != nil {
+	// Each step here is required, so a cancelled step ends the guided chain
+	// rather than skipping ahead to a half-configured save. Run() treats the
+	// resulting abort as the user leaving setup.
+	if err := uncancel(runAddProvider(s)); err != nil {
 		return err
 	}
-	if err := runHotkeyWizard(s, nil); err != nil {
+	if err := uncancel(runHotkeyWizard(s, nil)); err != nil {
 		return err
 	}
-	return runMicFlow(s)
+	return uncancel(runMicFlow(s))
 }
