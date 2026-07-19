@@ -1,7 +1,7 @@
 package whisper
 
 /*
-#cgo CPPFLAGS: -I${SRCDIR}/cvendor/include -I${SRCDIR}/cvendor/ggml/include
+#cgo CPPFLAGS: -I${SRCDIR}/cvendor/include -I${SRCDIR}/../ggml/cvendor/include
 #include <stdlib.h>
 #include "whisper.h"
 */
