@@ -568,4 +568,39 @@ func TestComposeSelectionCaptureError(t *testing.T) {
 	if sink.String() != "" {
 		t.Fatalf("nothing must be injected, got %q", sink.String())
 	}
+	if p.Core.State() != StateError {
+		t.Fatalf("state = %v, want StateError", p.Core.State())
+	}
+}
+
+func TestEmptyTranscriptSkipsLLMStages(t *testing.T) {
+	drv := &mockDriver{
+		transcribe: func(model string, _ drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "  ", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, _, _ string) (string, error) {
+			t.Fatal("chat must not be called for empty transcript")
+			return "", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := &config.Config{
+		Version: 2,
+		Hotkeys: map[string]config.Hotkey{"ctrl+alt+space": {
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:c"},
+		}},
+		ToggleMaxSeconds: 1,
+		InjectionMode:    config.InjectionModePaste,
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{Text: "precious", OK: true}
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if sink.String() != "" {
+		t.Fatalf("nothing must be injected, got %q", sink.String())
+	}
 }

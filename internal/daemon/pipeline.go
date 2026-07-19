@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 	"github.com/dmtrkzntsv/gosaid/internal/drivers"
@@ -46,6 +47,13 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey, sel <-chan inject.
 		return err
 	}
 	p.Log.Debug("transcription processed", "chars", len(text1), "text", text1, "lang", detectedLang)
+
+	if strings.TrimSpace(text1) == "" {
+		// Silence or an accidental tap — never run LLM stages on an empty
+		// instruction; with a selection held that would overwrite it.
+		p.Core.Transition(StateIdle, nil)
+		return nil
+	}
 
 	p.Core.Transition(StateProcessing, nil)
 
