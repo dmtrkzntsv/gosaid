@@ -17,19 +17,16 @@ type ProviderPreset struct {
 }
 
 // ProviderPresets is ordered as shown in the picker: Local Whisper first,
-// Custom last (per the design spec).
+// Custom last (per the design spec). Anything not listed here is reachable
+// through Custom, which asks for the api_base and model ids directly.
 var ProviderPresets = []ProviderPreset{
-	{Key: "local", Label: "Local Whisper (on-device, no API key)", Local: true},
+	{Key: "local", Label: "Local Whisper (on-device)", Local: true},
 	{Key: "openai", Label: "OpenAI", APIBase: "https://api.openai.com/v1",
 		TranscribeModel: "whisper-1", ChatModel: "gpt-5.4-nano"},
 	{Key: "groq", Label: "Groq", APIBase: "https://api.groq.com/openai/v1",
 		TranscribeModel: "whisper-large-v3-turbo", ChatModel: "llama-3.3-70b-versatile"},
 	{Key: "openrouter", Label: "OpenRouter", APIBase: "https://openrouter.ai/api/v1",
 		TranscribeModel: "", ChatModel: "openai/gpt-5.4-nano"},
-	{Key: "deepseek", Label: "DeepSeek", APIBase: "https://api.deepseek.com/v1",
-		TranscribeModel: "", ChatModel: "deepseek-chat"},
-	{Key: "together", Label: "Together", APIBase: "https://api.together.xyz/v1",
-		TranscribeModel: "", ChatModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo"},
 	{Key: "custom", Label: "Custom (OpenAI-compatible)", Custom: true},
 }
 

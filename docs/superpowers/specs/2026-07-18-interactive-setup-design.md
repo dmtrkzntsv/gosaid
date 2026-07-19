@@ -96,9 +96,10 @@ to delete the referencing hotkeys instead. Deletions that would leave the
 config with no provider or no hotkey are blocked (the daemon requires at
 least one of each).
 
-**Add (preset-driven).** Preset list, in order: **Local Whisper (on-device, no
-API key)**, OpenAI, Groq, OpenRouter, DeepSeek, Together, Custom
-(OpenAI-compatible).
+**Add (preset-driven).** Preset list, in order: **Local Whisper (on-device)**,
+OpenAI, Groq, OpenRouter, Custom (OpenAI-compatible). Providers without a
+preset are reached through Custom, which asks for the api_base and model ids
+directly.
 
 - *Cloud presets* prefill `api_base`; ask endpoint id (defaulted, e.g.
   `openai`) and API key (masked, non-empty). Each preset carries suggested
