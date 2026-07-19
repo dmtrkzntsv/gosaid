@@ -19,10 +19,24 @@ var osRemove = os.Remove
 // default `gosaid model download` uses.
 const localEndpointID = "local"
 
-// runModelFlow is the local Whisper model manager: a multi-select over the
-// curated catalog (plus any custom-registered models), a custom-model
-// prompt, and immediate download / deferred-save semantics per the spec.
+// runModelFlow is the local Whisper model manager. Adding a model from a link
+// re-renders the checklist so the new entry shows up checked, which is why
+// this loops rather than running once.
 func runModelFlow(s *Session) error {
+	for {
+		again, err := modelChecklist(s)
+		if err != nil {
+			return err
+		}
+		if !again {
+			return nil
+		}
+	}
+}
+
+// modelChecklist runs one pass of the checklist. It returns again=true when
+// the user asked to add a model from a link, so the caller re-renders.
+func modelChecklist(s *Session) (bool, error) {
 	registered := models.RegisteredModels(s.Cfg, localEndpointID)
 
 	// Catalog entries plus registered models outside the catalog.
@@ -45,17 +59,21 @@ func runModelFlow(s *Session) error {
 		opts = append(opts, huh.NewOption(name+" · custom", name).Selected(true))
 	}
 
-	// Offer the custom-model prompt as a row in the list rather than a
-	// separate question, so the whole screen is one checklist.
-	opts = append(opts, huh.NewOption("+ Add a model from a Hugging Face link", pickAdd))
-
 	var selected []string
 	for name := range registered {
 		selected = append(selected, name)
 	}
 	// Each field gets its own group: sharing one group squeezes the
 	// multi-select's viewport until its rows scroll out of view entirely.
-	apply := true
+	//
+	// "Add from a link" is an action, not a model, so it belongs in the
+	// follow-up step rather than as a checkbox row — a checkbox you tick and
+	// then have to confirm reads as though nothing happened.
+	const (
+		actionApply  = "apply"
+		actionCustom = "custom"
+	)
+	action := actionApply
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
@@ -65,39 +83,41 @@ func runModelFlow(s *Session) error {
 				Height(listHeight(len(opts))).
 				Value(&selected),
 		),
-		// A multi-select can't hold a "← Back" entry without it reading as a
-		// checkbox, so backing out is an explicit step of its own.
 		huh.NewGroup(
-			huh.NewConfirm().
+			huh.NewSelect[string]().
 				Title("Apply these model changes?").
-				Affirmative("Apply").Negative("← Back").
-				Value(&apply),
+				Options(
+					huh.NewOption("Apply", actionApply),
+					huh.NewOption("Add a model from a Hugging Face link…", actionCustom),
+					huh.NewOption("← Back", pickBack),
+				).
+				Height(listHeight(3)).
+				Value(&action),
 		),
 	)
 	if err := form.Run(); err != nil {
-		return cancelable(err)
+		return false, cancelable(err)
 	}
-	if !apply {
-		return errCancelStep
+	if action == pickBack {
+		return false, errCancelStep
 	}
 
-	// The custom-model row is an action, not a model to register.
-	addCustom := false
-	kept := selected[:0]
-	for _, name := range selected {
-		if name == pickAdd {
-			addCustom = true
-			continue
-		}
-		kept = append(kept, name)
-	}
-	selected = kept
-
-	diff := DiffModelSelection(registered, selected)
 	modelsDir, err := platform.ModelsDir()
 	if err != nil {
-		return err
+		return false, err
 	}
+
+	// Run the link prompt right away and re-render, so the new model appears
+	// in the list instead of the screen seeming to do nothing. Whatever the
+	// user checked is untouched — the next pass starts from the live config.
+	if action == actionCustom {
+		if err := absorbCancel(runCustomModelPrompt(s, modelsDir)); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	diff := DiffModelSelection(registered, selected)
 
 	for _, name := range diff.Add {
 		var file string
@@ -139,7 +159,7 @@ func runModelFlow(s *Session) error {
 					Value(&proceed),
 			)).Run()
 			if err != nil {
-				return cancelable(err)
+				return false, cancelable(err)
 			}
 			if !proceed {
 				continue
@@ -163,19 +183,13 @@ func runModelFlow(s *Session) error {
 				Value(&deleteFiles),
 		)).Run()
 		if err != nil {
-			return cancelable(err)
+			return false, cancelable(err)
 		}
 		if deleteFiles {
 			s.PendingDeletes = append(s.PendingDeletes, removedPaths...)
 		}
 	}
 
-	if addCustom {
-		// A cancelled custom-model prompt just skips that step.
-		if err := absorbCancel(runCustomModelPrompt(s, modelsDir)); err != nil {
-			return err
-		}
-	}
 	// Reached by picking Local Whisper as a provider and then checking
 	// nothing: the endpoint has no models, so it isn't a usable provider and
 	// the config wouldn't validate. Say so rather than letting the save fail
@@ -183,7 +197,7 @@ func runModelFlow(s *Session) error {
 	if len(models.RegisteredModels(s.Cfg, localEndpointID)) == 0 {
 		fmt.Println("No local models selected — local transcription needs at least one.")
 	}
-	return nil
+	return false, nil
 }
 
 // runCustomModelPrompt downloads and registers one model outside the catalog,
