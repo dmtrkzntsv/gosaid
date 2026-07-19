@@ -63,12 +63,13 @@ func modelChecklist(s *Session) (bool, error) {
 	for name := range registered {
 		selected = append(selected, name)
 	}
-	// Each field gets its own group: sharing one group squeezes the
-	// multi-select's viewport until its rows scroll out of view entirely.
+	// One group renders both fields on a single screen (tab moves between
+	// them): the checklist, then the action buttons beneath it. Each field
+	// still needs an explicit height, since huh divides the group's viewport
+	// between them and subtracts each one's title and description.
 	//
-	// "Add from a link" is an action, not a model, so it belongs in the
-	// follow-up step rather than as a checkbox row — a checkbox you tick and
-	// then have to confirm reads as though nothing happened.
+	// "Add from a link" is an action rather than a model, so it belongs with
+	// the buttons — as a checkbox row it looked like it did nothing.
 	const (
 		actionApply  = "apply"
 		actionCustom = "custom"
@@ -82,10 +83,7 @@ func modelChecklist(s *Session) (bool, error) {
 				Options(opts...).
 				Height(listHeight(len(opts))).
 				Value(&selected),
-		),
-		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Apply these model changes?").
 				Options(
 					huh.NewOption("Apply", actionApply),
 					huh.NewOption("Add a model from a Hugging Face link…", actionCustom),

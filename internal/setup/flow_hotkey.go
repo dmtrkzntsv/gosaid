@@ -185,25 +185,19 @@ func askModelRef(s *Session, title string, options []ModelOption) (string, error
 		return "", fmt.Errorf("no endpoint can serve %q — add a provider first", title)
 	}
 	endpointID := ids[0]
-	// Endpoint and model id go in separate groups: a select sharing a group
-	// with another field loses viewport height to it and can clip its options.
-	var groups []*huh.Group
+	var fields []huh.Field
 	if len(ids) > 1 {
 		var opts []huh.Option[string]
 		for _, id := range ids {
 			opts = append(opts, huh.NewOption(id, id))
 		}
-		groups = append(groups, huh.NewGroup(
-			huh.NewSelect[string]().Title(title+" — endpoint").Options(opts...).
-				Height(listHeight(len(opts))).Value(&endpointID),
-		))
+		fields = append(fields, huh.NewSelect[string]().Title(title+" — endpoint").
+			Options(opts...).Height(listHeight(len(opts))).Value(&endpointID))
 	}
 	var model string
-	groups = append(groups, huh.NewGroup(
-		huh.NewInput().Title(title+" — model id").
-			Validate(requireNonEmpty("model id")).Value(&model),
-	))
-	if err := huh.NewForm(groups...).Run(); err != nil {
+	fields = append(fields, huh.NewInput().Title(title+" — model id").
+		Validate(requireNonEmpty("model id")).Value(&model))
+	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
 		return "", cancelable(err)
 	}
 	return endpointID + ":" + strings.TrimSpace(model), nil
@@ -292,23 +286,17 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 	}
 
 	advanced := false
-	if err := huh.NewForm(
-		// Separate groups: a select sharing a group with another field loses
-		// viewport height to it and can clip its own options.
-		huh.NewGroup(
-			huh.NewSelect[string]().Title("Mode").
-				Description("Hold: record while pressed. Toggle: press to start, press to stop.").
-				Options(
-					huh.NewOption("Hold (push-to-talk)", string(config.ModeHold)),
-					huh.NewOption("Toggle", string(config.ModeToggle)),
-				).
-				Height(listHeight(2)).
-				Value(&a.Mode),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().Title("Set a hotkey-specific microphone?").Value(&advanced),
-		),
-	).Run(); err != nil {
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().Title("Mode").
+			Description("Hold: record while pressed. Toggle: press to start, press to stop.").
+			Options(
+				huh.NewOption("Hold (push-to-talk)", string(config.ModeHold)),
+				huh.NewOption("Toggle", string(config.ModeToggle)),
+			).
+			Height(listHeight(2)).
+			Value(&a.Mode),
+		huh.NewConfirm().Title("Set a hotkey-specific microphone?").Value(&advanced),
+	)).Run(); err != nil {
 		return cancelable(err)
 	}
 	if advanced {

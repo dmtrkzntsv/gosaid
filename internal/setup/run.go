@@ -80,10 +80,15 @@ var errCancelStep = errors.New("step cancelled")
 
 // listHeight sizes a select/multi-select so every option is visible.
 //
-// huh subtracts the rendered title and description from the height it is
-// given, so a field sized to len(options) collapses — in the worst case to a
-// single row. Budget for the chrome, and cap the result so a long list (the
-// language picker) still scrolls instead of running off the screen.
+// huh subtracts a field's rendered title and description from the height it
+// is given, and defaults that height to the options' own height — so a list
+// with a description collapses, in the worst case to a single row. Budget for
+// the chrome, and cap the result so a long list (the language picker) still
+// scrolls instead of running off the screen.
+//
+// With this set per field, several fields can share one group and render on
+// a single screen; huh only overrides a field's height when it exceeds the
+// group's.
 func listHeight(options int) int {
 	const chrome, max = 4, 16
 	h := options + chrome
