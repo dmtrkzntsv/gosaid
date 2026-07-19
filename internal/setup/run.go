@@ -43,24 +43,29 @@ func Run(args []string) int {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	if err := flow(s); err != nil {
-		if abort, ferr := confirmDiscardOnAbort(s, err); abort {
-			if ferr != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", ferr)
+	for {
+		if err := flow(s); err != nil {
+			if abort, ferr := confirmDiscardOnAbort(s, err); abort {
+				if ferr != nil {
+					fmt.Fprintf(os.Stderr, "error: %v\n", ferr)
+					return 1
+				}
+				fmt.Println("Changes discarded.")
+				return 0
+			} else if !errors.Is(err, huh.ErrUserAborted) {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				return 1
 			}
-			fmt.Println("Changes discarded.")
-			return 0
-		} else if !errors.Is(err, huh.ErrUserAborted) {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		}
+		if err := finish(s); err != nil {
+			fmt.Fprintf(os.Stderr, "config not saved: %v\n", err)
+			if topic == "" {
+				continue // hub: back to the menu to fix it
+			}
 			return 1
 		}
+		return 0
 	}
-	if err := finish(s); err != nil {
-		fmt.Fprintf(os.Stderr, "error: config not saved: %v\n", err)
-		return 1
-	}
-	return 0
 }
 
 // confirmDiscardOnAbort handles Ctrl+C/Esc out of a form. With no unsaved
@@ -100,7 +105,3 @@ func finish(s *Session) error {
 	offerRestart()
 	return nil
 }
-
-// Temporary stub so the package compiles until Task 7 replaces it
-// (each later task deletes its stub).
-func runHub(s *Session) error { return fmt.Errorf("hub not implemented yet") }
