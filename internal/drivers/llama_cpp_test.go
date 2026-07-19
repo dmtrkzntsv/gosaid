@@ -17,8 +17,8 @@ func TestLlamaCPPTranscribeUnsupported(t *testing.T) {
 		t.Fatalf("expected transcription-unsupported error, got: %v", err)
 	}
 	_, err = d.TranslateSpeech(context.Background(), []float32{0}, 16000, "gemma", TranslateSpeechOptions{})
-	if err == nil || !strings.Contains(err.Error(), "do not support transcription") {
-		t.Fatalf("expected transcription-unsupported error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "do not support speech translation") {
+		t.Fatalf("expected speech-translation-unsupported error, got: %v", err)
 	}
 }
 

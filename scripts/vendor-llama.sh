@@ -39,15 +39,24 @@ find "$TMP/l/src" -maxdepth 1 -type f \( -name '*.cpp' -o -name '*.h' \) \
   -exec cp {} "$DEST/src/" \;
 
 # Each src/ subdirectory needs its own cgo shim package (cgo compiles only
-# the sources in a package's own directory). Copy them and list what was
-# found so a new upstream subdirectory is noticed, not silently dropped.
+# the sources in a package's own directory). Copy them and track any that
+# are missing a shim so a new upstream subdirectory is noticed, not
+# silently dropped into a tree that looks vendored but won't compile.
+MISSING_SHIMS=()
 for d in "$TMP/l/src"/*/; do
   name="$(basename "$d")"
   cp -r "$d" "$DEST/src/$name"
   if [ ! -f "$DEST/src/$name/build.go" ]; then
     echo "warning: $DEST/src/$name has no build.go shim — add one or the sources will not compile" >&2
+    MISSING_SHIMS+=("$name")
   fi
 done
+
+if [ ${#MISSING_SHIMS[@]} -gt 0 ]; then
+  echo "error: missing build.go shim for: ${MISSING_SHIMS[*]}" >&2
+  echo "       add a shim for each directory listed above before vendoring" >&2
+  exit 1
+fi
 
 find "$DEST" -name 'CMakeLists.txt' -delete
 find "$DEST" -name '*.cmake' -delete

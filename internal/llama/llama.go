@@ -74,8 +74,11 @@ func (m *Model) Close() {
 
 // Chat runs a single-turn system+user completion and returns the
 // assistant's text. Each call uses a fresh context; nothing is retained
-// between calls. ctx is checked between decode steps, so cancellation
-// stops a long generation promptly.
+// between calls. ctx is checked between decode steps, so cancellation stops
+// the in-flight generation promptly. Chat holds the model's mutex for the
+// whole generation, so a call queued behind another generation on the same
+// model waits for the mutex first and cannot observe ctx cancellation until
+// then.
 func (m *Model) Chat(ctx context.Context, system, user string, opts Options) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
@@ -119,11 +122,14 @@ func (m *Model) Chat(ctx context.Context, system, user string, opts Options) (st
 	defer C.llama_free(lctx)
 
 	// Near-greedy sampling: enhance/translate want faithfulness; the small
-	// temperature keeps compose phrasing natural without drifting.
+	// temperature keeps compose phrasing natural without drifting. temp is
+	// applied first to sharpen the distribution, then min_p truncates the
+	// low-probability tail of that sharpened distribution, and dist samples
+	// from what remains — matching upstream's documented chain convention.
 	smpl := C.llama_sampler_chain_init(C.llama_sampler_chain_default_params())
 	defer C.llama_sampler_free(smpl)
-	C.llama_sampler_chain_add(smpl, C.llama_sampler_init_min_p(0.05, 1))
 	C.llama_sampler_chain_add(smpl, C.llama_sampler_init_temp(0.2))
+	C.llama_sampler_chain_add(smpl, C.llama_sampler_init_min_p(0.05, 1))
 	C.llama_sampler_chain_add(smpl, C.llama_sampler_init_dist(C.LLAMA_DEFAULT_SEED))
 
 	var sb strings.Builder
