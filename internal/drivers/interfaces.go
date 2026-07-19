@@ -3,8 +3,7 @@ package drivers
 import "context"
 
 // Driver is the minimum surface every transcription/chat backend must expose.
-// Only `openai_compatible` is implemented; the interface exists to keep the
-// pipeline agnostic.
+// Implemented by openai_compatible (all methods), whisper_cpp (speech only), and llama_cpp (chat only).
 type Driver interface {
 	// Transcribe performs general speech-to-text. On auto-detect, the result's
 	// DetectedLanguage is non-empty.
