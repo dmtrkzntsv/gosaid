@@ -2,7 +2,7 @@
 
 **Dictate in your native language, get polished text in another one.** Press a hotkey, speak, and GoSaid transcribes your speech, cleans it up, translates it — and types the result straight into the app under your cursor.
 
-- **Local or cloud** — run Whisper fully on-device via embedded whisper.cpp (no API key, no network), or use any OpenAI-compatible API (OpenAI, Groq, OpenRouter, DeepSeek, Together, …).
+- **Local or cloud** — run transcription and chat stages fully on-device via embedded whisper.cpp and llama.cpp (no API key, no network), or use any OpenAI-compatible API (OpenAI, Groq, OpenRouter, DeepSeek, Together, …).
 - **Lightweight** — a single static binary. No UI, no bundled runtimes, just one small background process.
 
 > **Platform status:** actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
@@ -69,7 +69,7 @@ A minimal working config — one provider, one push-to-talk hotkey:
 
 Any OpenAI-compatible API works — swap `api_base`/`api_key` for Groq, OpenRouter, DeepSeek, etc. Add more endpoints to mix providers; models are referenced as `<endpoint_id>:<model>`.
 
-### Local transcription (no cloud)
+### Local models (no cloud)
 
 Transcription can run fully locally via embedded whisper.cpp — no API key, no network. Download a GGML model and it's registered in your config automatically as the `local` endpoint:
 
@@ -85,7 +85,7 @@ Then use it in a hotkey: `"transcribe": { "model": "local:turbo" }`.
 | `ggml-small.bin` | ~460 MB | Balanced multilingual fallback, fast on plain CPU |
 | `ggml-base.bin` | ~140 MB | Near-instant; fine for quick English notes |
 
-On macOS inference runs on the GPU (Metal). Local models cover **transcription only** — `enhance`, `compose`, and `translate` need an OpenAI-compatible endpoint (cloud, or a local server like Ollama).
+On macOS inference runs on the GPU (Metal).
 
 Loaded models stay resident in memory for instant dictation (the model's full weight size, e.g. ~1.7 GB for un-quantized `large-v3-turbo`). To trade a few seconds of reload latency for that memory, set `unload_after_seconds` in the endpoint's config — an idle model is freed after that long and reloads on the next dictation:
 
@@ -95,6 +95,37 @@ Loaded models stay resident in memory for instant dictation (the model's full we
   "unload_after_seconds": 300
 }
 ```
+
+#### Local chat models (enhance / compose / translate)
+
+The text stages can also run fully locally via embedded llama.cpp. Download
+any instruct-tuned GGUF model — it registers as the `local-llm` endpoint:
+
+    gosaid model download ggml-org/gemma-3-4b-it-GGUF gemma-3-4b-it-Q4_K_M.gguf --name gemma
+
+Then use it in a hotkey's chat stages:
+
+    "cmd+shift+r": {
+      "mode": "hold",
+      "transcribe": { "model": "local:turbo" },
+      "enhance":    { "model": "local-llm:gemma" },
+      "translate":  { "model": "local-llm:gemma", "output_language": "en" }
+    }
+
+| Model | Size | When to use |
+|---|---|---|
+| `gemma-3-4b-it-Q4_K_M.gguf` (repo `ggml-org/gemma-3-4b-it-GGUF`) | ~2.5 GB | Recommended default — strong cleanup and translation quality |
+| `Qwen3-1.7B-Q4_K_M.gguf` (repo `ggml-org/Qwen3-1.7B-GGUF`) | ~1.1 GB | Budget option: less RAM, faster loads, weaker compose quality |
+
+Chat models follow the same residency rules as whisper models: loaded
+lazily on first use, kept in memory for instant dictation, and — with
+`unload_after_seconds` set on the endpoint — freed after idling. Budget
+RAM for every model that can be resident at once (e.g. whisper turbo
+~550 MB + a 4B chat model ~2.5 GB); mixing a small enhance model with a
+larger compose model is fine, but each loads separately.
+
+Models must ship an embedded chat template (instruct builds do); base
+models are rejected at load time.
 
 ### Hotkeys
 
