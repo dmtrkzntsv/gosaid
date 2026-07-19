@@ -112,16 +112,20 @@ Loaded models stay resident in memory for instant dictation (the model's full we
 The text stages can also run fully locally via embedded llama.cpp. Download
 any instruct-tuned GGUF model — it registers as the `local-llm` endpoint:
 
-    gosaid model download ggml-org/gemma-3-4b-it-GGUF gemma-3-4b-it-Q4_K_M.gguf --name gemma
+```
+gosaid model download ggml-org/gemma-3-4b-it-GGUF gemma-3-4b-it-Q4_K_M.gguf --name gemma
+```
 
 Then use it in a hotkey's chat stages:
 
-    "cmd+shift+r": {
-      "mode": "hold",
-      "transcribe": { "model": "local:turbo" },
-      "enhance":    { "model": "local-llm:gemma" },
-      "translate":  { "model": "local-llm:gemma", "output_language": "en" }
-    }
+```json
+"cmd+shift+r": {
+  "mode": "hold",
+  "transcribe": { "model": "local:turbo" },
+  "enhance":    { "model": "local-llm:gemma" },
+  "translate":  { "model": "local-llm:gemma", "output_language": "en" }
+}
+```
 
 | Model | Size | When to use |
 |---|---|---|
