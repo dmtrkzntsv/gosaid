@@ -21,7 +21,7 @@ func RunModel(args []string) int {
 	}
 	fs := flag.NewFlagSet("model download", flag.ContinueOnError)
 	name := fs.String("name", "", "model name to register (default: derived from file name)")
-	endpoint := fs.String("endpoint", "local", "whisper_cpp endpoint id to register under")
+	endpoint := fs.String("endpoint", "", "endpoint id to register under (default: local for whisper models, local-llm for .gguf chat models)")
 	force := fs.Bool("force", false, "overwrite an existing file and config entry")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
@@ -41,6 +41,10 @@ func RunModel(args []string) int {
 	if *name == "" {
 		*name = models.DeriveName(rest[1])
 	}
+	driver, defaultEndpoint := models.DownloadDefaults(rest[1])
+	if *endpoint == "" {
+		*endpoint = defaultEndpoint
+	}
 
 	cfgPath, err := config.Path()
 	if err == nil {
@@ -51,6 +55,7 @@ func RunModel(args []string) int {
 				Repo: rest[0], File: rest[1], Name: *name, EndpointID: *endpoint,
 				CfgPath: cfgPath, ModelsDir: modelsDir,
 				BaseURL: models.HuggingFaceBase, Force: *force,
+				Driver: driver,
 			})
 		}
 	}

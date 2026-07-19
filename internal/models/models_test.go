@@ -25,6 +25,83 @@ func TestDeriveModelName(t *testing.T) {
 	}
 }
 
+func TestDeriveModelNameGGUF(t *testing.T) {
+	cases := map[string]string{
+		"gemma-3-4b-it-Q4_K_M.gguf":       "gemma-3-4b-it",
+		"qwen2.5-0.5b-instruct-q4_0.gguf": "qwen2.5-0.5b-instruct",
+		"Llama-3.2-1B-Instruct-F16.gguf":  "Llama-3.2-1B-Instruct",
+		"plain.gguf":                      "plain",
+	}
+	for in, want := range cases {
+		if got := DeriveName(in); got != want {
+			t.Errorf("DeriveName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDownloadDefaults(t *testing.T) {
+	if d, e := DownloadDefaults("ggml-base.bin"); d != config.DriverWhisperCPP || e != DefaultWhisperEndpoint {
+		t.Fatalf("bin defaults = %q/%q", d, e)
+	}
+	if d, e := DownloadDefaults("gemma-3-4b-it-Q4_K_M.gguf"); d != config.DriverLlamaCPP || e != DefaultLlamaEndpoint {
+		t.Fatalf("gguf defaults = %q/%q", d, e)
+	}
+}
+
+func TestDownloadGGUFRegistersUnderLlamaCPP(t *testing.T) {
+	opts, cfgPath := downloadEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write([]byte("FAKE-GGUF-BYTES"))
+	}))
+	opts.Repo, opts.File = "ggml-org/gemma-3-4b-it-GGUF", "gemma-3-4b-it-Q4_K_M.gguf"
+	opts.Name, opts.EndpointID = "gemma", DefaultLlamaEndpoint
+	opts.Driver = config.DriverLlamaCPP
+	if err := Download(opts); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found string
+	for _, d := range cfg.Drivers {
+		if d.Driver != config.DriverLlamaCPP {
+			continue
+		}
+		for _, e := range d.Endpoints {
+			if e.ID == DefaultLlamaEndpoint {
+				found = e.Config.Models["gemma"]
+			}
+		}
+	}
+	if found == "" || !strings.HasSuffix(found, "gemma-3-4b-it-Q4_K_M.gguf") {
+		t.Fatalf("llama_cpp endpoint not registered, got path %q", found)
+	}
+}
+
+// An empty Driver keeps the original whisper_cpp behavior, so callers that
+// predate the llama_cpp split (the setup flow) don't have to set it.
+func TestDownloadDefaultsToWhisperDriver(t *testing.T) {
+	opts, cfgPath := downloadEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("FAKE-GGML-BYTES"))
+	}))
+	opts.Driver = ""
+	if err := Download(opts); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := RegisteredModels(cfg, "local")["base"]; got == "" {
+		t.Fatal("expected the model registered under whisper_cpp")
+	}
+}
+
 func downloadEnv(t *testing.T, handler http.Handler) (opts DownloadOpts, cfgPath string) {
 	t.Helper()
 	srv := httptest.NewServer(handler)

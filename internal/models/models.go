@@ -1,6 +1,7 @@
-// Package models handles downloading and registering local Whisper models
-// (whisper_cpp driver) so both the CLI and the setup wizard can share the
-// same logic without an import cycle.
+// Package models handles downloading and registering local models — Whisper
+// transcription models under the whisper_cpp driver, and GGUF chat models
+// under llama_cpp — so both the CLI and the setup wizard can share the same
+// logic without an import cycle.
 package models
 
 import (
@@ -9,30 +10,52 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
 
-// DownloadOpts configures Download.
+// Default endpoint ids per driver, used when the caller doesn't name one.
+const (
+	DefaultWhisperEndpoint = "local"
+	DefaultLlamaEndpoint   = "local-llm"
+)
+
+// DownloadOpts configures Download. Driver defaults to whisper_cpp when
+// empty, matching the original transcription-only behavior.
 type DownloadOpts struct {
 	Repo, File, Name, EndpointID string
 	CfgPath, ModelsDir, BaseURL  string
+	Driver                       string
 	Force                        bool
+}
+
+// DownloadDefaults maps a model file name to its driver and default endpoint
+// id: .gguf files are chat models for llama_cpp, everything else is a Whisper
+// GGML model for whisper_cpp.
+func DownloadDefaults(file string) (driver, endpointID string) {
+	if strings.EqualFold(filepath.Ext(file), ".gguf") {
+		return config.DriverLlamaCPP, DefaultLlamaEndpoint
+	}
+	return config.DriverWhisperCPP, DefaultWhisperEndpoint
 }
 
 // Download performs the full model-download operation: load config, run
 // collision/duplicate checks, fetch the file, register it, and save config.
 func Download(o DownloadOpts) error {
+	if o.Driver == "" {
+		o.Driver = config.DriverWhisperCPP
+	}
 	cfg, err := config.Load(o.CfgPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if driver := otherDriverForEndpoint(cfg, o.EndpointID); driver != "" {
+	if driver := otherDriverForEndpoint(cfg, o.EndpointID, o.Driver); driver != "" {
 		return fmt.Errorf("endpoint %q already exists with driver %q; choose a different --endpoint id",
 			o.EndpointID, driver)
 	}
-	if existing := findModel(cfg, o.EndpointID, o.Name); existing != "" && !o.Force {
+	if existing := findModel(cfg, o.Driver, o.EndpointID, o.Name); existing != "" && !o.Force {
 		return fmt.Errorf("model %q is already registered on endpoint %q → %s (use --force to overwrite)",
 			o.Name, o.EndpointID, existing)
 	}
@@ -48,12 +71,16 @@ func Download(o DownloadOpts) error {
 	if err != nil {
 		return err
 	}
-	Register(cfg, o.EndpointID, o.Name, dest)
+	RegisterFor(cfg, o.Driver, o.EndpointID, o.Name, dest)
 	if err := config.Save(o.CfgPath, cfg); err != nil {
 		return fmt.Errorf("update config: %w", err)
 	}
-	fmt.Printf("downloaded %s (%.1f MB)\nregistered model %q on endpoint %q\n\nuse it in a hotkey:\n  \"transcribe\": { \"model\": \"%s:%s\" }\n",
-		dest, float64(size)/(1<<20), o.Name, o.EndpointID, o.EndpointID, o.Name)
+	stage := "transcribe"
+	if o.Driver == config.DriverLlamaCPP {
+		stage = "enhance"
+	}
+	fmt.Printf("downloaded %s (%.1f MB)\nregistered model %q on endpoint %q\n\nuse it in a hotkey:\n  \"%s\": { \"model\": \"%s:%s\" }\n",
+		dest, float64(size)/(1<<20), o.Name, o.EndpointID, stage, o.EndpointID, o.Name)
 	return nil
 }
 
@@ -76,11 +103,21 @@ func FetchModelFile(baseURL, repo, file, modelsDir string, force bool) (string, 
 	return dest, size, nil
 }
 
-// DeriveName turns a model file name into a short registered name: strip
-// the "ggml-" prefix and the final extension. "ggml-base.bin" → "base".
+// quantSuffixRe matches a trailing GGUF quantization label such as
+// -Q4_K_M, -q4_0, -IQ2_XS, -F16, or -BF16.
+var quantSuffixRe = regexp.MustCompile(`(?i)-(i?q[0-9][a-z0-9_]*|f16|f32|bf16)$`)
+
+// DeriveName turns a model file name into a short registered name.
+// Whisper GGML files drop the "ggml-" prefix ("ggml-base.bin" → "base");
+// GGUF files drop a quantization suffix ("gemma-3-4b-it-Q4_K_M.gguf" →
+// "gemma-3-4b-it").
 func DeriveName(file string) string {
 	base := filepath.Base(file)
-	base = strings.TrimSuffix(base, filepath.Ext(base))
+	ext := filepath.Ext(base)
+	base = strings.TrimSuffix(base, ext)
+	if strings.EqualFold(ext, ".gguf") {
+		return quantSuffixRe.ReplaceAllString(base, "")
+	}
 	return strings.TrimPrefix(base, "ggml-")
 }
 
@@ -99,12 +136,18 @@ func RegisteredModels(cfg *config.Config, endpointID string) map[string]string {
 	return nil
 }
 
-// Register adds models[name]=path to the endpoint, creating the
-// whisper_cpp driver block and/or endpoint if missing.
+// Register adds models[name]=path to a whisper_cpp endpoint, creating the
+// driver block and/or endpoint if missing.
 func Register(cfg *config.Config, endpointID, name, path string) {
+	RegisterFor(cfg, config.DriverWhisperCPP, endpointID, name, path)
+}
+
+// RegisterFor adds models[name]=path to the endpoint under the given driver,
+// creating the driver block and/or endpoint if missing.
+func RegisterFor(cfg *config.Config, driver, endpointID, name, path string) {
 	for di := range cfg.Drivers {
 		d := &cfg.Drivers[di]
-		if d.Driver != config.DriverWhisperCPP {
+		if d.Driver != driver {
 			continue
 		}
 		for ei := range d.Endpoints {
@@ -125,7 +168,7 @@ func Register(cfg *config.Config, endpointID, name, path string) {
 		return
 	}
 	cfg.Drivers = append(cfg.Drivers, config.Driver{
-		Driver: config.DriverWhisperCPP,
+		Driver: driver,
 		Endpoints: []config.Endpoint{{
 			ID:     endpointID,
 			Config: config.EndpointConfig{Models: map[string]string{name: path}},
@@ -164,10 +207,11 @@ func Unregister(cfg *config.Config, endpointID, name string) (string, bool) {
 	return "", false
 }
 
-// findModel returns the registered path for name on the endpoint, or "".
-func findModel(cfg *config.Config, endpointID, name string) string {
+// findModel returns the registered path for name on the endpoint under the
+// given driver, or "".
+func findModel(cfg *config.Config, driver, endpointID, name string) string {
 	for _, d := range cfg.Drivers {
-		if d.Driver != config.DriverWhisperCPP {
+		if d.Driver != driver {
 			continue
 		}
 		for _, e := range d.Endpoints {
@@ -180,11 +224,11 @@ func findModel(cfg *config.Config, endpointID, name string) string {
 }
 
 // otherDriverForEndpoint scans all drivers for an endpoint with the given id
-// belonging to a driver other than whisper_cpp, returning that driver's type
-// (or "" if the id is unused or already owned by whisper_cpp).
-func otherDriverForEndpoint(cfg *config.Config, endpointID string) string {
+// belonging to a driver other than ownDriver, returning that driver's type
+// (or "" if the id is unused or already owned by ownDriver).
+func otherDriverForEndpoint(cfg *config.Config, endpointID, ownDriver string) string {
 	for _, d := range cfg.Drivers {
-		if d.Driver == config.DriverWhisperCPP {
+		if d.Driver == ownDriver {
 			continue
 		}
 		for _, e := range d.Endpoints {
