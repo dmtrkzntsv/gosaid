@@ -23,8 +23,9 @@ type CatalogEntry struct {
 }
 
 // Catalog is the curated short list offered by `gosaid setup model`. It is
-// deliberately small — three models that cover the useful range — with
-// anything else reachable through the custom-model prompt.
+// deliberately small — the two models that suit most people — with everything
+// else (large-v3, the .en variants, other quantizations) reachable through
+// the custom-model prompt.
 //
 // The turbo entry is the quantized q5_0 build: the README's default
 // recommendation, roughly a third the size of the un-quantized file at
@@ -32,7 +33,6 @@ type CatalogEntry struct {
 var Catalog = []CatalogEntry{
 	{Name: "small", File: "ggml-small.bin", Size: "~488 MB", Note: "fast on plain CPU"},
 	{Name: "turbo", File: "ggml-large-v3-turbo-q5_0.bin", Size: "~550 MB", Note: "recommended — best accuracy/latency balance"},
-	{Name: "large-v3", File: "ggml-large-v3.bin", Size: "~3.1 GB", Note: "highest accuracy, slowest"},
 }
 
 // ParseHuggingFaceURL extracts the repo and file from a Hugging Face model

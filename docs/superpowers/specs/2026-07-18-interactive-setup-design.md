@@ -114,14 +114,15 @@ Presets live in a small table in `internal/setup` — easy to extend.
 Multi-select checklist:
 
 - **Curated models** from the official `ggerganov/whisper.cpp` HF repo — a
-  deliberately short list covering the useful range, each with its approximate
-  download size and a one-phrase note: `small` (~488 MB, fast on plain CPU),
-  `turbo` (~550 MB, the quantized `large-v3-turbo-q5_0` the README already
-  recommends as the default), `large-v3` (~3.1 GB, highest accuracy). A
-  curated model's registered name need not match its filename — `turbo` is
-  friendlier than `large-v3-turbo-q5_0`. Models already registered on the
-  `local` endpoint are pre-checked; models registered outside the catalog
-  appear pre-checked as "custom".
+  deliberately short list of the two that suit most people, each with its
+  approximate download size and a one-phrase note: `small` (~488 MB, fast on
+  plain CPU) and `turbo` (~550 MB, the quantized `large-v3-turbo-q5_0` the
+  README already recommends as the default). Everything else — `large-v3`,
+  the `.en` variants, other quantizations — is reachable through the custom
+  prompt. A curated model's registered name need not match its filename:
+  `turbo` is friendlier than `large-v3-turbo-q5_0`. Models already registered
+  on the `local` endpoint are pre-checked; models registered outside the
+  catalog appear pre-checked as "custom".
 - **`+ Custom model`** asks for a Hugging Face link, which the user can paste
   straight from the browser: the `resolve`/`blob` URL shapes and the bare
   `owner/repo/file` form are all accepted, and the repo and file are parsed
