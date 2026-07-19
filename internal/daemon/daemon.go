@@ -138,13 +138,18 @@ func Run(injector inject.Injector) error {
 		// when copy synthesis fails while recording is still live.
 		var captureLive atomic.Bool
 		// selCh carries the selection-capture result from press to release.
-		// OnTrigger and OnStop run on the hotkey manager's event goroutine,
-		// so plain assignment is safe.
-		var selCh chan inject.SelectionResult
+		// Atomic because toggle mode fires OnStop from a time.AfterFunc
+		// goroutine, not the hotkey event goroutine. Cross-cycle safety of
+		// captureLive/selCh reuse rests on a timing invariant: the capture
+		// goroutine is bounded by selectionTimeout (~300ms), while a new
+		// cycle can only start once the core returns to Idle (full pipeline
+		// or the error auto-recovery delay), so a stale goroutine never
+		// races the next cycle's state.
+		var selCh atomic.Pointer[chan inject.SelectionResult]
 		handler := hotkey.Handler{
 			OnTrigger: func() {
 				captureLive.Store(false)
-				selCh = nil
+				selCh.Store(nil)
 				if !core.TryStartRecording() {
 					log.Debug("hotkey press ignored — core busy", "combo", combo)
 					return
@@ -161,7 +166,7 @@ func Run(injector inject.Injector) error {
 				captureLive.Store(true)
 				if hk.Compose.IsEnabled() && selReader != nil {
 					ch := make(chan inject.SelectionResult, 1)
-					selCh = ch
+					selCh.Store(&ch)
 					go func() {
 						res := selReader.GetSelection(ctx)
 						// Copy synthesis failure means the later paste would
@@ -182,7 +187,10 @@ func Run(injector inject.Injector) error {
 					log.Debug("hotkey release ignored — capture never started", "combo", combo)
 					return
 				}
-				sel := selCh
+				var sel chan inject.SelectionResult
+				if p := selCh.Load(); p != nil {
+					sel = *p
+				}
 				go func() {
 					pctx, pcancel := context.WithTimeout(ctx, 90*time.Second)
 					defer pcancel()
