@@ -101,7 +101,6 @@ func finish(s *Session) error {
 	return nil
 }
 
-// Temporary stubs so the package compiles until Tasks 7-10 replace them
+// Temporary stub so the package compiles until Task 7 replaces it
 // (each later task deletes its stub).
-func runHub(s *Session) error        { return fmt.Errorf("hub not implemented yet") }
-func runHotkeyFlow(s *Session) error { return fmt.Errorf("hotkey manager not implemented yet") }
+func runHub(s *Session) error { return fmt.Errorf("hub not implemented yet") }
