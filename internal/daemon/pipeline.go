@@ -29,8 +29,10 @@ type Pipeline struct {
 }
 
 // Run executes the full pipeline for one hotkey trigger. Called after the
-// user releases the hotkey (or the toggle-mode cap fires).
-func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
+// user releases the hotkey (or the toggle-mode cap fires). sel, when
+// non-nil, delivers the result of the selection capture started at hotkey
+// press; it is only set for compose-enabled hotkeys.
+func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey, sel <-chan inject.SelectionResult) error {
 	samples, err := p.Capture.Stop()
 	if err != nil {
 		p.Core.Transition(StateError, err)
@@ -54,11 +56,29 @@ func (p *Pipeline) Run(ctx context.Context, hk config.Hotkey) error {
 		if hk.Enhance.IsEnabled() {
 			p.Log.Debug("compose set: enhance stage skipped")
 		}
-		reshaped, err = p.compose(ctx, text1, hk.Compose)
-		// Compose may produce output in a different language than the transcript
-		// (e.g. Russian instruction "write this in English"). Drop the stale
-		// language hint so translate neither skips incorrectly nor fills the
-		// prompt with a wrong source.
+		var selRes inject.SelectionResult
+		if sel != nil {
+			select {
+			case selRes = <-sel:
+			case <-ctx.Done():
+				p.Core.Transition(StateError, ctx.Err())
+				return ctx.Err()
+			}
+		}
+		if selRes.Err != nil {
+			p.Core.Transition(StateError, selRes.Err)
+			return selRes.Err
+		}
+		if selRes.OK {
+			p.Log.Debug("selection captured", "chars", len(selRes.Text))
+			reshaped, err = p.transform(ctx, text1, selRes.Text, hk.Compose)
+		} else {
+			reshaped, err = p.compose(ctx, text1, hk.Compose)
+		}
+		// Compose/transform may produce output in a different language than
+		// the transcript (e.g. Russian instruction about English text). Drop
+		// the stale language hint so translate neither skips incorrectly nor
+		// fills the prompt with a wrong source.
 		translateLang = ""
 	case hk.Enhance.IsEnabled():
 		reshaped, err = p.enhance(ctx, text1, hk.Enhance)
@@ -207,6 +227,29 @@ func (p *Pipeline) compose(ctx context.Context, input string, stage *config.Comp
 		return "", err
 	}
 	p.Log.Debug("compose", "text", out)
+	return out, nil
+}
+
+// transform rewrites captured selection text according to the dictated
+// instruction, reusing the compose stage's model and instructions.
+func (p *Pipeline) transform(ctx context.Context, instruction, selection string, stage *config.ComposeStage) (string, error) {
+	drv, model, err := p.resolve(stage.Model)
+	if err != nil {
+		return "", err
+	}
+	system, err := RenderTransform(TransformData{
+		Selection:    selection,
+		UserContext:  p.Config.UserContext,
+		Instructions: stage.Instructions,
+	})
+	if err != nil {
+		return "", err
+	}
+	out, err := drv.Chat(ctx, model, system, instruction)
+	if err != nil {
+		return "", err
+	}
+	p.Log.Debug("transform", "text", out)
 	return out, nil
 }
 

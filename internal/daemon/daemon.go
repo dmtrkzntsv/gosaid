@@ -156,7 +156,7 @@ func Run(injector inject.Injector) error {
 				go func() {
 					pctx, pcancel := context.WithTimeout(ctx, 90*time.Second)
 					defer pcancel()
-					if err := pipe.Run(pctx, hk); err != nil {
+					if err := pipe.Run(pctx, hk, nil); err != nil {
 						log.Error("pipeline", "combo", combo, "err", err)
 					}
 				}()
