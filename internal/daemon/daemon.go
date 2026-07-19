@@ -119,6 +119,11 @@ func Run(injector inject.Injector) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Selection capture is available only for injectors that support it
+	// (PasteInjector does; the test Stub doesn't). Without it, compose
+	// hotkeys behave as before: fresh composition, no clipboard touch.
+	selReader, _ := injector.(inject.SelectionReader)
+
 	for combo, hk := range cfg.Hotkeys {
 		combo, hk := combo, hk
 		mode := hotkey.Mode(hk.Mode)
@@ -129,10 +134,17 @@ func Run(injector inject.Injector) error {
 		// started capture. OnStop reads it to decide whether to run the
 		// pipeline — guards against a Start() failure followed by error
 		// auto-recovery (Error→Idle) racing the user's hotkey release.
+		// The selection-capture goroutine also swaps it to abort the run
+		// when copy synthesis fails while recording is still live.
 		var captureLive atomic.Bool
+		// selCh carries the selection-capture result from press to release.
+		// OnTrigger and OnStop run on the hotkey manager's event goroutine,
+		// so plain assignment is safe.
+		var selCh chan inject.SelectionResult
 		handler := hotkey.Handler{
 			OnTrigger: func() {
 				captureLive.Store(false)
+				selCh = nil
 				if !core.TryStartRecording() {
 					log.Debug("hotkey press ignored — core busy", "combo", combo)
 					return
@@ -147,16 +159,34 @@ func Run(injector inject.Injector) error {
 						"combo", combo, "want", hk.Microphone, "using", opened)
 				}
 				captureLive.Store(true)
+				if hk.Compose.IsEnabled() && selReader != nil {
+					ch := make(chan inject.SelectionResult, 1)
+					selCh = ch
+					go func() {
+						res := selReader.GetSelection(ctx)
+						// Copy synthesis failure means the later paste would
+						// fail too — abort now with the error cue rather than
+						// composing text the user meant as a rewrite command.
+						// Swap decides the winner if release races us: whoever
+						// flips captureLive first owns stopping the capturer.
+						if res.Err != nil && captureLive.Swap(false) {
+							_, _ = capturer.Stop()
+							core.Transition(StateError, res.Err)
+						}
+						ch <- res
+					}()
+				}
 			},
 			OnStop: func() {
 				if !captureLive.Swap(false) {
 					log.Debug("hotkey release ignored — capture never started", "combo", combo)
 					return
 				}
+				sel := selCh
 				go func() {
 					pctx, pcancel := context.WithTimeout(ctx, 90*time.Second)
 					defer pcancel()
-					if err := pipe.Run(pctx, hk, nil); err != nil {
+					if err := pipe.Run(pctx, hk, sel); err != nil {
 						log.Error("pipeline", "combo", combo, "err", err)
 					}
 				}()
