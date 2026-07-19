@@ -8,7 +8,6 @@ import (
 )
 
 func synthesizePaste() error { return synthesizeCombo("v", "47") } // KEY_V = 47
-func synthesizeCopy() error  { return synthesizeCombo("c", "46") } // KEY_C = 46
 
 // synthesizeCombo emits Ctrl+<key>, trying the most likely tool present.
 // Wayland: wtype (native), then ydotool (requires daemon+uinput).

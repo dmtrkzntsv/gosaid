@@ -41,11 +41,12 @@ Mechanism:
    is absent, image (`clipboard.FmtImage`), so an image on the clipboard
    survives the round-trip.
 2. Clear/write a sentinel value to the clipboard.
-3. Synthesize Cmd/Ctrl+C — a per-platform sibling of `synth_paste`:
-   Quartz `CGEvent` on macOS, `wtype`/`xdotool`/`ydotool` on Linux,
-   `SendInput` on Windows. Synthesized events set only the Command/Ctrl
-   modifier flag explicitly, so the physically-held hotkey modifiers do not
-   leak into the copy keystroke.
+3. Synthesize Cmd+C — macOS only, via Quartz `CGEvent` (`kVK_ANSI_C` with the
+   Command flag set explicitly, so the physically-held hotkey modifiers do
+   not leak into the copy keystroke). On Linux/Windows, `GetSelection`
+   reports "no selection" without touching the clipboard: a synthesized
+   Ctrl+C would interrupt the foreground process when a terminal has focus
+   (SIGINT on Linux, CTRL_C_EVENT on Windows).
 4. Poll the clipboard for up to ~300 ms for a change. Changed and non-empty →
    selection captured (`ok=true`). Unchanged or empty → no selection
    (`ok=false`, not an error).
@@ -134,3 +135,5 @@ added later if a real need appears.
   config or UX.
 - A strict transform-only stage that errors on missing selection.
 - Opt-out config flag for selection capture.
+- Linux/Windows selection capture (requires a non-interrupting copy strategy,
+  e.g. Ctrl+Insert, and real platform testing).

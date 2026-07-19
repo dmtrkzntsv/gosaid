@@ -9,7 +9,6 @@ import (
 
 const (
 	vkControl     = 0x11
-	vkC           = 0x43
 	vkV           = 0x56
 	inputKeyboard = 1
 	keyEventKeyUp = 0x0002
@@ -36,7 +35,6 @@ var (
 )
 
 func synthesizePaste() error { return sendCtrlCombo(vkV) }
-func synthesizeCopy() error  { return sendCtrlCombo(vkC) }
 
 func sendCtrlCombo(vk uint16) error {
 	events := []input{
