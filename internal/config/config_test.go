@@ -324,3 +324,16 @@ func TestExpandPath(t *testing.T) {
 		t.Fatalf("absolute path must pass through, got %q", got)
 	}
 }
+
+func TestMicrophoneFor(t *testing.T) {
+	cfg := &Config{Microphone: "MacBook"}
+	if got := cfg.MicrophoneFor(Hotkey{}); got != "MacBook" {
+		t.Errorf("global fallback: got %q, want %q", got, "MacBook")
+	}
+	if got := cfg.MicrophoneFor(Hotkey{Microphone: "AirPods"}); got != "AirPods" {
+		t.Errorf("hotkey override: got %q, want %q", got, "AirPods")
+	}
+	if got := (&Config{}).MicrophoneFor(Hotkey{}); got != "" {
+		t.Errorf("both empty: got %q, want system default (empty)", got)
+	}
+}

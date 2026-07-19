@@ -137,14 +137,15 @@ func Run(injector inject.Injector) error {
 					log.Debug("hotkey press ignored — core busy", "combo", combo)
 					return
 				}
-				opened, err := capturer.Start(hk.Microphone)
+				mic := cfg.MicrophoneFor(hk)
+				opened, err := capturer.Start(mic)
 				if err != nil {
 					core.Transition(StateError, err)
 					return
 				}
-				if hk.Microphone != "" && !audio.MatchesDevice(opened, hk.Microphone) {
+				if mic != "" && !audio.MatchesDevice(opened, mic) {
 					log.Warn("configured microphone not found — using fallback",
-						"combo", combo, "want", hk.Microphone, "using", opened)
+						"combo", combo, "want", mic, "using", opened)
 				}
 				captureLive.Store(true)
 			},
