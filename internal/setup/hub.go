@@ -17,27 +17,26 @@ func runHub(s *Session) error {
 	for {
 		var choice string
 		if err := huh.NewForm(huh.NewGroup(
+			// Local models are reached through Providers → Local Whisper,
+			// not as a top-level entry: they are one provider's detail.
 			huh.NewSelect[string]().Title("GoSaid setup").Options(
-				huh.NewOption("Hotkeys", "hotkey"),
 				huh.NewOption("Providers", "provider"),
-				huh.NewOption("Local models", "model"),
+				huh.NewOption("Hotkeys", "hotkey"),
 				huh.NewOption("Microphone", "mic"),
-				huh.NewOption("Done", "done"),
+				huh.NewOption("Exit", "exit"),
 			).Value(&choice),
 		)).Run(); err != nil {
 			return err
 		}
 		var err error
 		switch choice {
-		case "hotkey":
-			err = runHotkeyFlow(s)
 		case "provider":
 			err = runProviderFlow(s)
-		case "model":
-			err = runModelFlow(s)
+		case "hotkey":
+			err = runHotkeyFlow(s)
 		case "mic":
 			err = runMicFlow(s)
-		case "done":
+		case "exit":
 			return nil
 		}
 		// Backing out of a manager returns to this menu, not out of setup.

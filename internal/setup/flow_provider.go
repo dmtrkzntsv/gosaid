@@ -196,10 +196,14 @@ func runAddProvider(s *Session) error {
 	for _, p := range ProviderPresets {
 		presetOpts = append(presetOpts, huh.NewOption(p.Label, p.Key))
 	}
+	presetOpts = append(presetOpts, huh.NewOption("← Back", pickBack))
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Add a provider").Options(presetOpts...).Value(&presetKey),
 	)).Run(); err != nil {
 		return cancelable(err)
+	}
+	if presetKey == pickBack {
+		return errCancelStep
 	}
 	var preset ProviderPreset
 	for _, p := range ProviderPresets {

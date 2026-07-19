@@ -148,16 +148,20 @@ func askModelRef(s *Session, title string, options []ModelOption) (string, error
 	}
 	if len(options) > 1 {
 		var choice string
-		err := huh.NewForm(huh.NewGroup(
-			huh.NewSelect[string]().Title(title).Options(func() []huh.Option[string] {
-				var opts []huh.Option[string]
-				for _, o := range options {
-					opts = append(opts, huh.NewOption(o.Label, o.Ref))
-				}
-				return opts
-			}()...).Value(&choice),
-		)).Run()
-		return choice, err
+		opts := make([]huh.Option[string], 0, len(options)+1)
+		for _, o := range options {
+			opts = append(opts, huh.NewOption(o.Label, o.Ref))
+		}
+		opts = append(opts, huh.NewOption("← Back", pickBack))
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewSelect[string]().Title(title).Options(opts...).Value(&choice),
+		)).Run(); err != nil {
+			return "", cancelable(err)
+		}
+		if choice == pickBack {
+			return "", errCancelStep
+		}
+		return choice, nil
 	}
 	// No suggestions — endpoint + free-text model id.
 	ids := OpenAIEndpointIDs(s.Cfg)
@@ -211,11 +215,15 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 	} else {
 		desc += " (Clean up, translate and compose need a cloud provider — add one first.)"
 	}
+	recipeOpts = append(recipeOpts, huh.NewOption("← Back", pickBack))
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Recipe").Description(desc).
 			Options(recipeOpts...).Value(&a.Recipe),
 	)).Run(); err != nil {
 		return cancelable(err)
+	}
+	if a.Recipe == pickBack {
+		return errCancelStep
 	}
 
 	ref, err := askModelRef(s, "Transcription model", TranscribeModelOptions(s.Cfg))
@@ -237,10 +245,14 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 			langOpts = append(langOpts, huh.NewOption(
 				fmt.Sprintf("%s (%s)", config.LanguageName(code), code), code))
 		}
+		langOpts = append(langOpts, huh.NewOption("← Back", pickBack))
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().Title("Translate to").Options(langOpts...).Value(&a.TargetLang),
 		)).Run(); err != nil {
 			return cancelable(err)
+		}
+		if a.TargetLang == pickBack {
+			return errCancelStep
 		}
 	}
 	if a.Recipe == RecipeCompose {
@@ -273,9 +285,13 @@ func runHotkeyWizard(s *Session, existing *HotkeyAnswers) error {
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewSelect[string]().Title("Microphone for this hotkey").
 				Description("Overrides the global default for this hotkey only.").
-				Options(opts...).Value(&a.Microphone),
+				Options(append(opts, huh.NewOption("← Back", pickBack))...).
+				Value(&a.Microphone),
 		)).Run(); err != nil {
 			return cancelable(err)
+		}
+		if a.Microphone == pickBack {
+			return errCancelStep
 		}
 	}
 

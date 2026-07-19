@@ -35,11 +35,14 @@ func runMicFlow(s *Session) error {
 		huh.NewSelect[string]().
 			Title("Microphone").
 			Description("Used by every hotkey unless the hotkey sets its own microphone.").
-			Options(opts...).
+			Options(append(opts, huh.NewOption("← Back", pickBack))...).
 			Value(&choice),
 	))
 	if err := form.Run(); err != nil {
 		return cancelable(err)
+	}
+	if choice == pickBack {
+		return errCancelStep
 	}
 	if choice != s.Cfg.Microphone {
 		SetDefaultMicrophone(s.Cfg, choice)

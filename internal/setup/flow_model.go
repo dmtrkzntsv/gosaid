@@ -50,6 +50,7 @@ func runModelFlow(s *Session) error {
 		selected = append(selected, name)
 	}
 	addCustom := false
+	apply := true
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Local Whisper models").
@@ -59,9 +60,18 @@ func runModelFlow(s *Session) error {
 		huh.NewConfirm().
 			Title("Add a custom model from Hugging Face?").
 			Value(&addCustom),
+		// A multi-select can't hold a "← Back" entry without it reading as a
+		// checkbox, so backing out is an explicit step of its own.
+		huh.NewConfirm().
+			Title("Apply these model changes?").
+			Affirmative("Apply").Negative("← Back").
+			Value(&apply),
 	))
 	if err := form.Run(); err != nil {
 		return cancelable(err)
+	}
+	if !apply {
+		return errCancelStep
 	}
 
 	diff := DiffModelSelection(registered, selected)

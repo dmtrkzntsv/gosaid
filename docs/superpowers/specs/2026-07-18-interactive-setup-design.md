@@ -13,7 +13,7 @@ setup → dictating`.
 ## CLI surface
 
 ```
-gosaid setup             interactive hub: Hotkeys / Providers / Local models / Microphone / Done
+gosaid setup             interactive hub: Providers / Hotkeys / Microphone / Exit
 gosaid setup hotkey      jump straight to the hotkey manager
 gosaid setup provider    jump straight to the provider manager
 gosaid setup model       jump straight to the local model manager
@@ -26,10 +26,16 @@ Removed: `gosaid mic` (its only subcommand, `list`, is superseded by `setup
 mic`). Update the README and the per-hotkey `Microphone` doc comment in
 `internal/config/config.go`, both of which reference `gosaid mic list`.
 
-`gosaid setup` opens a menu that routes into the four managers and returns to
-the menu after each. Choosing *Done* (or Esc/Ctrl+C) proceeds to save. When
+`gosaid setup` opens a menu that routes into the three managers and returns to
+the menu after each. Local models are not a top-level entry — they are one
+provider's detail, reached through Providers → Local Whisper (or directly via
+`gosaid setup model`). Choosing *Exit* (or Esc/Ctrl+C) proceeds to save. When
 invoked as `gosaid setup <topic>`, finishing that topic goes straight to save —
 no hub menu.
+
+Every screen below the hub offers a `← Back` entry that returns one level up,
+and Esc does the same: backing out of a step never ends the session. Only the
+hub's own menu treats Esc as leaving setup, where it matches *Exit*.
 
 **First run:** if config.json is missing or has no endpoints, `setup` skips the
 menu and chains: add provider → add first hotkey → pick mic → save.
