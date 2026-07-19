@@ -5,7 +5,9 @@
 # into internal/ggml/cvendor/. Usage: scripts/vendor-whisper.sh [tag]
 set -euo pipefail
 
-TAG="${1:-v1.9.1}"
+cd "$(dirname "$0")/.."
+source scripts/vendor-versions.env
+TAG="${1:-$WHISPER_TAG}"
 DEST="internal/whisper/cvendor"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
