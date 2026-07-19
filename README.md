@@ -13,7 +13,7 @@
 
 ```
 brew install dmtrkzntsv/tap/gosaid
-gosaid config                  # paste your API key, save
+gosaid setup                   # guided setup: provider, hotkey, microphone
 brew services start gosaid     # runs in background, auto-starts at login
 ```
 
@@ -26,11 +26,22 @@ Upgrade with `brew upgrade gosaid`, stop with `brew services stop gosaid`.
 
 1. Download `gosaid-<version>-windows-amd64.zip` from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest), extract, and put `gosaid.exe` on your `PATH`.
 2. SmartScreen will warn on first run (the binary is unsigned in v1) — click **More info → Run anyway**.
-3. Run `gosaid config`, then `gosaid`.
+3. Run `gosaid setup`, then `gosaid`.
 
 > Prefer a raw binary or building from source? See [Manual installation](#manual-installation).
 
 ## Configuration
+
+The easiest way to configure GoSaid is the interactive setup:
+
+```
+gosaid setup             # menu: hotkeys, providers, local models, microphone
+gosaid setup hotkey      # jump straight to one topic (also: provider, model, mic)
+```
+
+On a fresh install `gosaid setup` walks you through everything: pick a
+provider, create your first hotkey, choose a microphone. Prefer raw JSON?
+`gosaid config` still opens the file in `$EDITOR`.
 
 Config is a single JSON file — run `gosaid config` to open it in `$EDITOR`. A complete annotated sample lives at [`internal/config/config.example.json`](internal/config/config.example.json).
 
@@ -110,9 +121,7 @@ Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–
 By default recording uses the system default input. To pin a hotkey to a specific microphone, list the available devices:
 
 ```
-$ gosaid mic list
-* MacBook Pro Microphone
-  USB PnP Sound Device
+$ gosaid setup mic
 ```
 
 and set the hotkey's `microphone` field to the device name — a case-insensitive substring is enough:

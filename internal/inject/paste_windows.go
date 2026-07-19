@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	vkControl    = 0x11
-	vkV          = 0x56
+	vkControl     = 0x11
+	vkV           = 0x56
 	inputKeyboard = 1
 	keyEventKeyUp = 0x0002
 )
@@ -36,9 +36,9 @@ var (
 
 func synthesizePaste() error {
 	events := []input{
-		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkControl}},                    // ctrl down
-		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkV}},                          // v    down
-		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkV, dwFlags: keyEventKeyUp}},  // v    up
+		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkControl}},                         // ctrl down
+		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkV}},                               // v    down
+		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkV, dwFlags: keyEventKeyUp}},       // v    up
 		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkControl, dwFlags: keyEventKeyUp}}, // ctrl up
 	}
 	r, _, err := sendInput.Call(
