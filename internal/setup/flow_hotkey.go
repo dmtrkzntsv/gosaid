@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -118,6 +119,10 @@ func askCombo(s *Session) (string, error) {
 		return choice, nil
 	}
 	var combo string
+	// Locking keys (Caps Lock, Fn, …) can never be bound. The field's error
+	// line is too narrow for the explanation, so show a short reason inline
+	// and keep the full one to print after the form closes.
+	var lockingSeen *hotkey.LockingKeyError
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewInput().Title("Key combo").
 			Description("Esc goes back to the hotkey list.").
@@ -125,6 +130,11 @@ func askCombo(s *Session) (string, error) {
 			Validate(func(v string) error {
 				v = strings.ToLower(strings.TrimSpace(v))
 				if _, _, err := hotkey.Parse(v); err != nil {
+					var locking *hotkey.LockingKeyError
+					if errors.As(err, &locking) {
+						lockingSeen = locking
+						return errors.New(locking.Short())
+					}
 					return err
 				}
 				if _, bound := s.Cfg.Hotkeys[v]; bound {
@@ -134,6 +144,9 @@ func askCombo(s *Session) (string, error) {
 			}).
 			Value(&combo),
 	)).Run(); err != nil {
+		if lockingSeen != nil {
+			fmt.Println(lockingSeen.Error())
+		}
 		return "", cancelable(err)
 	}
 	return strings.ToLower(strings.TrimSpace(combo)), nil
