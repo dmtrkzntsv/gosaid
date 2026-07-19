@@ -103,6 +103,5 @@ func finish(s *Session) error {
 
 // Temporary stubs so the package compiles until Tasks 7-10 replace them
 // (each later task deletes its stub).
-func runHub(s *Session) error          { return fmt.Errorf("hub not implemented yet") }
-func runHotkeyFlow(s *Session) error   { return fmt.Errorf("hotkey manager not implemented yet") }
-func runProviderFlow(s *Session) error { return fmt.Errorf("provider manager not implemented yet") }
+func runHub(s *Session) error        { return fmt.Errorf("hub not implemented yet") }
+func runHotkeyFlow(s *Session) error { return fmt.Errorf("hotkey manager not implemented yet") }
