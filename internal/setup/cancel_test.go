@@ -8,6 +8,7 @@ import (
 	"charm.land/huh/v2"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
+	"github.com/dmtrkzntsv/gosaid/internal/models"
 )
 
 // The three cancel helpers form a round trip: a form abort becomes the
@@ -84,25 +85,21 @@ func TestListHeightLeavesRoomForChrome(t *testing.T) {
 	}
 }
 
-// Adding a model from a link is an action, so it lives in the follow-up
-// select rather than as a checkbox row: the checklist's values are model
-// names only. A sentinel reaching DiffModelSelection would be treated as a
-// model to download and register, putting a NUL-prefixed name in the config.
-func TestModelChecklistCarriesOnlyModelNames(t *testing.T) {
-	registered := map[string]string{"turbo": "/m/ggml-large-v3-turbo-q5_0.bin"}
-	d := DiffModelSelection(registered, []string{"turbo", "small"})
-
-	if len(d.Add) != 1 || d.Add[0] != "small" {
-		t.Errorf("Add = %v, want [small]", d.Add)
-	}
-	if len(d.Remove) != 0 {
-		t.Errorf("Remove = %v, want none — turbo stayed checked", d.Remove)
-	}
-	for _, name := range append(append([]string{}, d.Add...), d.Remove...) {
-		for _, sentinel := range []string{pickAdd, pickBack, pickTypeOwn} {
-			if name == sentinel {
-				t.Fatalf("a picker sentinel leaked into the diff as %q", name)
+// The model picker mixes model names with the pickAdd/pickBack action rows in
+// one select. Those actions are dispatched in a switch before the choice is
+// treated as a model name — if one ever fell through, installModel would try
+// to download a NUL-prefixed "model" and register it in the config.
+func TestModelPickerActionsAreNotModelNames(t *testing.T) {
+	for _, sentinel := range []string{pickAdd, pickBack} {
+		for _, e := range models.Catalog {
+			if e.Name == sentinel {
+				t.Fatalf("catalog model %q collides with a picker action", e.Name)
 			}
+		}
+		// installModel looks the choice up in the catalog and errors when it
+		// finds nothing, so a leaked action can't silently become a download.
+		if err := installModel(&Session{Cfg: config.Default()}, sentinel); err == nil {
+			t.Errorf("installModel(%q) must reject a picker action, got nil", sentinel)
 		}
 	}
 }

@@ -267,32 +267,3 @@ func RemoveModelBlocked(cfg *config.Config, endpointID, name string) string {
 	return ""
 }
 
-// ModelDiff is the outcome of the local-model multi-select: names to
-// download+register and names to unregister.
-type ModelDiff struct {
-	Add    []string
-	Remove []string
-}
-
-// DiffModelSelection compares the registered model names with the picker
-// selection. Both output slices are sorted.
-func DiffModelSelection(registered map[string]string, selected []string) ModelDiff {
-	sel := map[string]bool{}
-	for _, s := range selected {
-		sel[s] = true
-	}
-	var d ModelDiff
-	for _, s := range selected {
-		if _, ok := registered[s]; !ok {
-			d.Add = append(d.Add, s)
-		}
-	}
-	for name := range registered {
-		if !sel[name] {
-			d.Remove = append(d.Remove, name)
-		}
-	}
-	sort.Strings(d.Add)
-	sort.Strings(d.Remove)
-	return d
-}

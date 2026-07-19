@@ -274,13 +274,3 @@ func TestRemoveModelBlocked(t *testing.T) {
 	}
 }
 
-func TestDiffModelSelection(t *testing.T) {
-	registered := map[string]string{"base": "/m/b.bin", "tiny": "/m/t.bin"}
-	d := DiffModelSelection(registered, []string{"base", "large-v3-turbo"})
-	if !reflect.DeepEqual(d.Add, []string{"large-v3-turbo"}) {
-		t.Errorf("Add = %v", d.Add)
-	}
-	if !reflect.DeepEqual(d.Remove, []string{"tiny"}) {
-		t.Errorf("Remove = %v", d.Remove)
-	}
-}

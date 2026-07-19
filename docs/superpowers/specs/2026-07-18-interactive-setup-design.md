@@ -111,35 +111,37 @@ Presets live in a small table in `internal/setup` — easy to extend.
 
 ### Local model manager
 
-Multi-select checklist:
+A single select — one local model is the normal case, so this is a pick-one
+list rather than a checklist:
 
 - **Curated models** from the official `ggerganov/whisper.cpp` HF repo — a
   deliberately short list of the two that suit most people, each with its
   approximate download size and a one-phrase note: `small` (~488 MB, fast on
   plain CPU) and `turbo` (~550 MB, the quantized `large-v3-turbo-q5_0` the
   README already recommends as the default). Everything else — `large-v3`,
-  the `.en` variants, other quantizations — is reachable through the custom
+  the `.en` variants, other quantizations — is reachable through the link
   prompt. A curated model's registered name need not match its filename:
-  `turbo` is friendlier than `large-v3-turbo-q5_0`. Models already registered
-  on the `local` endpoint are pre-checked; models registered outside the
-  catalog appear pre-checked as "custom".
-- **`+ Custom model`** asks for a Hugging Face link, which the user can paste
-  straight from the browser: the `resolve`/`blob` URL shapes and the bare
-  `owner/repo/file` form are all accepted, and the repo and file are parsed
-  out of it.
+  `turbo` is friendlier than `large-v3-turbo-q5_0`. Installed models are
+  marked `✓`, including any added from a link.
+- **`Add a model from a Hugging Face link…`** asks for a link the user can
+  paste straight from the browser: the `resolve`/`blob` URL shapes and the
+  bare `owner/repo/file` form are all accepted, and the repo and file are
+  parsed out of it.
+- **`← Back`** leaves the manager.
 
-On confirm, apply the diff:
+Picking an entry acts on it immediately and re-renders the list:
 
-- *Newly checked* → download via the existing progress-streaming fetch in the
+- *Not installed* → download via the existing progress-streaming fetch in the
   model-download internals (skip if the file already exists on disk), register
   on the `local` endpoint.
-- *Unchecked* → unregister from config. If a hotkey references
-  `local:<name>`, offer to delete those hotkeys too; declining keeps the
-  model. Removals that would leave no provider are blocked (the daemon
-  requires at least one). Then ask once whether to also delete the model
-  files from disk (default yes).
+- *Installed* (`✓`) → offer to remove it. If a hotkey references
+  `local:<name>`, the same prompt says those hotkeys will be deleted;
+  declining keeps the model. Removals that would leave no provider, or that
+  would delete every hotkey, are blocked (the daemon requires at least one of
+  each). The same prompt asks whether to delete the model file from disk
+  (default yes).
 
-Downloads execute immediately on confirm (disk side effects); the config
+Downloads execute immediately (disk side effects); the config
 registration rides the final save like every other change. Model file
 *deletions*, by contrast, are deferred: they are only applied to disk after
 a successful save, so a discarded session never leaves config.json
