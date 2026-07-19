@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+
+	"github.com/dmtrkzntsv/gosaid/internal/setup"
 )
 
 // Dispatch handles a single argv invocation and returns an exit code.
@@ -24,8 +26,8 @@ func Dispatch(version string, args []string) int {
 		return 0
 	case "model":
 		return RunModel(args[1:])
-	case "mic":
-		return RunMic(args[1:])
+	case "setup":
+		return setup.Run(args[1:])
 	case "version", "-v", "--version":
 		fmt.Println(version)
 		return 0
@@ -44,10 +46,12 @@ func Usage() {
 
 usage:
   gosaid           run the daemon
+  gosaid setup     interactive configuration (hotkeys, providers, models, mic)
+  gosaid setup hotkey|provider|model|mic
+                   jump straight to one setup topic
   gosaid config    open the config file in $EDITOR
   gosaid model download <hf-repo> <file>
                    download a GGML model from Hugging Face and register it
-  gosaid mic list  list available microphones (* marks the system default)
   gosaid version   print version
   gosaid help      print this message`)
 }
