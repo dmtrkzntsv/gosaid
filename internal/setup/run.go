@@ -97,7 +97,7 @@ func finish(s *Session) error {
 		return err
 	}
 	fmt.Printf("Saved %s\n", s.Path)
-	fmt.Println("Restart the daemon to apply changes (e.g. `brew services restart gosaid`).")
+	offerRestart()
 	return nil
 }
 
