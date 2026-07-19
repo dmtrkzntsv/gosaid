@@ -27,12 +27,13 @@ type Endpoint struct {
 
 // EndpointConfig is the per-endpoint configuration. Which fields are required
 // depends on the driver type: openai_compatible needs api_base/api_key;
-// whisper_cpp needs models (name → GGML model file path).
+// whisper_cpp needs models (name → GGML model file path);
+// llama_cpp needs models (name → GGUF model file path).
 type EndpointConfig struct {
 	APIBase string            `json:"api_base,omitempty"`
 	APIKey  string            `json:"api_key,omitempty"`
 	Models  map[string]string `json:"models,omitempty"`
-	// UnloadAfterSeconds (whisper_cpp only) frees a loaded model after this
+	// UnloadAfterSeconds (whisper_cpp / llama_cpp only) frees a loaded model after this
 	// many seconds without use; it reloads lazily on the next dictation.
 	// 0 or absent keeps models resident once loaded.
 	UnloadAfterSeconds int `json:"unload_after_seconds,omitempty"`
@@ -115,6 +116,7 @@ const (
 	CurrentVersion         = 2
 	DriverOpenAICompatible = "openai_compatible"
 	DriverWhisperCPP       = "whisper_cpp"
+	DriverLlamaCPP         = "llama_cpp"
 	InjectionModePaste     = "paste"
 	DefaultToggleSeconds   = 60
 )
