@@ -3,7 +3,7 @@
 **Dictate in your native language, get polished text in another one.** Press a hotkey, speak, and GoSaid transcribes your speech, cleans it up, translates it — and types the result straight into the app under your cursor.
 
 - **Local or cloud** — run Whisper fully on-device via embedded whisper.cpp (no API key, no network), or use any OpenAI-compatible API (OpenAI, Groq, OpenRouter, DeepSeek, Together, …).
-- **Edit by voice** — select text in any app, hold a compose hotkey, and say how to change it ("make it shorter", "more formal"). The selection is replaced in place; with nothing selected, the same hotkey composes fresh text. (Selection capture is macOS-only for now.)
+- **Edit by voice** — select text in any app, hold a compose hotkey, and say how to change it ("make it shorter", "more formal"). The selection is replaced in place; with nothing selected, the same hotkey composes fresh text. (Selection capture is macOS-only for now.) Compose presses briefly round-trip the clipboard to detect the selection; it is restored afterwards.
 - **Lightweight** — a single static binary. No UI, no bundled runtimes, just one small background process.
 
 > **Platform status:** actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
