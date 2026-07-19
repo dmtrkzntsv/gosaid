@@ -106,4 +106,3 @@ func finish(s *Session) error {
 func runHub(s *Session) error          { return fmt.Errorf("hub not implemented yet") }
 func runHotkeyFlow(s *Session) error   { return fmt.Errorf("hotkey manager not implemented yet") }
 func runProviderFlow(s *Session) error { return fmt.Errorf("provider manager not implemented yet") }
-func runModelFlow(s *Session) error    { return fmt.Errorf("model manager not implemented yet") }
