@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	vkControl    = 0x11
-	vkV          = 0x56
+	vkControl     = 0x11
+	vkC           = 0x43
+	vkV           = 0x56
 	inputKeyboard = 1
 	keyEventKeyUp = 0x0002
 )
@@ -34,11 +35,14 @@ var (
 	sendInput = user32.NewProc("SendInput")
 )
 
-func synthesizePaste() error {
+func synthesizePaste() error { return sendCtrlCombo(vkV) }
+func synthesizeCopy() error  { return sendCtrlCombo(vkC) }
+
+func sendCtrlCombo(vk uint16) error {
 	events := []input{
-		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkControl}},                    // ctrl down
-		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkV}},                          // v    down
-		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkV, dwFlags: keyEventKeyUp}},  // v    up
+		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkControl}},                         // ctrl down
+		{inputType: inputKeyboard, ki: keyboardInput{wVk: vk}},                                // key  down
+		{inputType: inputKeyboard, ki: keyboardInput{wVk: vk, dwFlags: keyEventKeyUp}},        // key  up
 		{inputType: inputKeyboard, ki: keyboardInput{wVk: vkControl, dwFlags: keyEventKeyUp}}, // ctrl up
 	}
 	r, _, err := sendInput.Call(
