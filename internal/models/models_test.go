@@ -198,16 +198,73 @@ func TestFetchModelFileSkipsExisting(t *testing.T) {
 	}
 }
 
-func TestCatalog(t *testing.T) {
-	if len(Catalog) < 6 {
-		t.Fatalf("catalog too small: %d entries", len(Catalog))
+func TestParseHuggingFaceURL(t *testing.T) {
+	const wantRepo, wantFile = "ggerganov/whisper.cpp", "ggml-small.bin"
+	ok := map[string]struct{ repo, file string }{
+		"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin":               {wantRepo, wantFile},
+		"https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-small.bin":                  {wantRepo, wantFile},
+		"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true": {wantRepo, wantFile},
+		"  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin  ":           {wantRepo, wantFile},
+		"https://www.huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin":           {wantRepo, wantFile},
+		"ggerganov/whisper.cpp/ggml-small.bin":                                                   {wantRepo, wantFile},
+		// Nested paths and non-main revisions must survive intact.
+		"https://huggingface.co/owner/repo/resolve/v2/subdir/ggml-x.bin": {"owner/repo", "subdir/ggml-x.bin"},
 	}
+	for in, want := range ok {
+		repo, file, err := ParseHuggingFaceURL(in)
+		if err != nil {
+			t.Errorf("%q: unexpected error: %v", in, err)
+			continue
+		}
+		if repo != want.repo || file != want.file {
+			t.Errorf("%q → repo %q, file %q; want %q, %q", in, repo, file, want.repo, want.file)
+		}
+	}
+
+	bad := []string{
+		"",
+		"   ",
+		"https://example.com/owner/repo/resolve/main/ggml-small.bin", // wrong host
+		"https://huggingface.co/ggerganov",                           // no file
+		"ggerganov/whisper.cpp",                                      // repo only
+		"https://huggingface.co/owner/repo/resolve/main/README.md",   // not a .bin
+	}
+	for _, in := range bad {
+		if repo, file, err := ParseHuggingFaceURL(in); err == nil {
+			t.Errorf("%q should be rejected, got repo %q file %q", in, repo, file)
+		}
+	}
+}
+
+func TestCatalog(t *testing.T) {
+	if len(Catalog) == 0 {
+		t.Fatal("catalog must offer at least one model")
+	}
+	seenNames := map[string]bool{}
+	seenFiles := map[string]bool{}
 	for _, e := range Catalog {
-		if e.Name == "" || e.File == "" || e.Size == "" {
+		if e.Name == "" || e.File == "" || e.Size == "" || e.Note == "" {
 			t.Errorf("incomplete entry: %+v", e)
 		}
-		if DeriveName(e.File) != e.Name {
-			t.Errorf("entry %q: DeriveName(%q) = %q, want match", e.Name, e.File, DeriveName(e.File))
+		// Names become model refs ("local:turbo"), so they must be unique and
+		// colon-free. They need NOT equal DeriveName(File): the curated names
+		// are deliberately friendlier than some filenames (turbo, not
+		// large-v3-turbo-q5_0).
+		if seenNames[e.Name] {
+			t.Errorf("duplicate model name %q — refs would collide", e.Name)
+		}
+		seenNames[e.Name] = true
+		if strings.Contains(e.Name, ":") {
+			t.Errorf("model name %q must not contain ':'", e.Name)
+		}
+		// Two entries sharing a file would download to the same path and
+		// register two names for one file.
+		if seenFiles[e.File] {
+			t.Errorf("duplicate model file %q", e.File)
+		}
+		seenFiles[e.File] = true
+		if !strings.HasSuffix(e.File, ".bin") {
+			t.Errorf("entry %q: file %q should be a GGML .bin", e.Name, e.File)
 		}
 	}
 }

@@ -31,7 +31,7 @@ func runModelFlow(s *Session) error {
 	for _, e := range models.Catalog {
 		inCatalog[e.Name] = true
 		opts = append(opts, huh.NewOption(
-			fmt.Sprintf("%s · %s", e.Name, e.Size), e.Name,
+			fmt.Sprintf("%s · %s · %s", e.Name, e.Size, e.Note), e.Name,
 		).Selected(registered[e.Name] != ""))
 	}
 	var customNames []string
@@ -160,23 +160,27 @@ func runModelFlow(s *Session) error {
 	return nil
 }
 
-// runCustomModelPrompt downloads and registers one model outside the catalog.
+// runCustomModelPrompt downloads and registers one model outside the catalog,
+// taking the Hugging Face link the user can copy straight from the browser.
 func runCustomModelPrompt(s *Session, modelsDir string) error {
-	var repo, file string
+	var link string
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewInput().
-			Title("Hugging Face repository").
-			Placeholder("ggerganov/whisper.cpp").
-			Validate(requireNonEmpty("repository")).
-			Value(&repo),
-		huh.NewInput().
-			Title("Model file").
-			Placeholder("ggml-large-v3-q5_0.bin").
-			Validate(requireNonEmpty("file")).
-			Value(&file),
+			Title("Hugging Face model link").
+			Description("Paste the file's page or download URL. Esc goes back.").
+			Placeholder("https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-large-v3-q5_0.bin").
+			Validate(func(v string) error {
+				_, _, err := models.ParseHuggingFaceURL(v)
+				return err
+			}).
+			Value(&link),
 	))
 	if err := form.Run(); err != nil {
 		return cancelable(err)
+	}
+	repo, file, err := models.ParseHuggingFaceURL(link)
+	if err != nil {
+		return err
 	}
 	name := models.DeriveName(file)
 	fmt.Printf("Downloading %s…\n", name)
