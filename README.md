@@ -118,13 +118,15 @@ Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–
 
 #### Picking a microphone
 
-By default recording uses the system default input. To pin a hotkey to a specific microphone, list the available devices:
+By default recording uses the system default input. To set a global default microphone, run:
 
 ```
-$ gosaid setup mic
+gosaid setup mic
 ```
 
-and set the hotkey's `microphone` field to the device name — a case-insensitive substring is enough:
+This opens an interactive picker to select the default microphone for all hotkeys — choose "System default" to clear the override.
+
+To override the default for a specific hotkey, run `gosaid setup hotkey`, select the hotkey, and answer yes to the microphone prompt. Alternatively, edit the hotkey's `microphone` field in `config.json` — use a case-insensitive substring of the device name:
 
 ```json
 "ctrl+alt+space": {
