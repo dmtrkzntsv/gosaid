@@ -84,9 +84,11 @@ Delete confirms first; Edit re-runs the wizard pre-filled.
 Select list of existing endpoints (`openai · api.openai.com`,
 `local · whisper_cpp (2 models)`), plus `+ Add new provider` and `← Back`.
 Edit updates API key/base (cloud) or routes to the model manager (local).
-Delete warns when hotkeys reference the endpoint: list them, offer reassignment
-to another compatible endpoint if one exists, otherwise require explicit
-confirmation.
+Delete warns when hotkeys reference the endpoint: list them, and require
+reassignment to another compatible endpoint when one exists; otherwise offer
+to delete the referencing hotkeys instead. Deletions that would leave the
+config with no provider or no hotkey are blocked (the daemon requires at
+least one of each).
 
 **Add (preset-driven).** Preset list, in order: **Local Whisper (on-device, no
 API key)**, OpenAI, Groq, OpenRouter, DeepSeek, Together, Custom
@@ -116,11 +118,16 @@ On confirm, apply the diff:
   model-download internals (skip if the file already exists on disk), register
   on the `local` endpoint.
 - *Unchecked* → unregister from config. If a hotkey references
-  `local:<name>`, list the affected hotkeys and require confirmation. Then ask
-  once whether to also delete the model files from disk (default yes).
+  `local:<name>`, offer to delete those hotkeys too; declining keeps the
+  model. Removals that would leave no provider are blocked (the daemon
+  requires at least one). Then ask once whether to also delete the model
+  files from disk (default yes).
 
 Downloads execute immediately on confirm (disk side effects); the config
-registration rides the final save like every other change.
+registration rides the final save like every other change. Model file
+*deletions*, by contrast, are deferred: they are only applied to disk after
+a successful save, so a discarded session never leaves config.json
+referencing a file that's already gone.
 
 ### Microphone
 
@@ -154,6 +161,11 @@ system default. No config version bump — old configs remain valid.
   "Restart the daemon to apply changes?" — run `brew services restart gosaid`
   when brew manages it, otherwise print the platform-appropriate manual
   instruction. If no daemon is running, print how to start one.
+- After a successful save, any pending model-file deletions (see Local model
+  manager) are applied to disk.
+- A flow error that isn't a Ctrl+C/Esc abort no longer discards unsaved work
+  outright: if the session has unsaved changes, setup offers to save them
+  before exiting.
 
 ## Error handling
 

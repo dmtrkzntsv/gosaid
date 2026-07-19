@@ -100,7 +100,7 @@ func runEditCloudProvider(s *Session, id string) error {
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewInput().Title("API base URL").
 			Validate(requireNonEmpty("api base")).Value(&apiBase),
-		huh.NewInput().Title("API key").Password(true).
+		huh.NewInput().Title("API key").EchoMode(huh.EchoModePassword).
 			Validate(requireNonEmpty("api key")).Value(&apiKey),
 	)).Run(); err != nil {
 		return err
@@ -114,9 +114,17 @@ func runEditCloudProvider(s *Session, id string) error {
 
 // runDeleteProvider deletes an endpoint, first resolving hotkeys that
 // reference it: reassign to another openai_compatible endpoint when one
-// exists, otherwise require explicit confirmation.
+// exists, otherwise offer to delete the referencing hotkeys. No mutation
+// happens until the final confirm.
 func runDeleteProvider(s *Session, id string) error {
+	if reason := DeleteEndpointBlocked(s.Cfg, id); reason != "" {
+		fmt.Println("Cannot delete: " + reason)
+		return nil
+	}
+
 	refs := HotkeysUsingEndpoint(s.Cfg, id)
+	reassignTo := ""
+	cascade := false
 	if len(refs) > 0 {
 		var others []string
 		for _, other := range OpenAIEndpointIDs(s.Cfg) {
@@ -125,24 +133,36 @@ func runDeleteProvider(s *Session, id string) error {
 			}
 		}
 		if len(others) > 0 {
-			reassignTo := ""
-			opts := []huh.Option[string]{huh.NewOption("Don't reassign (hotkeys will break)", "")}
+			var opts []huh.Option[string]
 			for _, o := range others {
 				opts = append(opts, huh.NewOption("Reassign to "+o, o))
 			}
 			if err := huh.NewForm(huh.NewGroup(
 				huh.NewSelect[string]().
 					Title(fmt.Sprintf("Hotkeys using %q: %s", id, strings.Join(refs, ", "))).
-					Description("Pick a replacement provider for them, or proceed without one.").
+					Description("Pick a replacement provider for them.").
 					Options(opts...).Value(&reassignTo),
 			)).Run(); err != nil {
 				return err
 			}
-			if reassignTo != "" {
-				ReassignEndpoint(s.Cfg, id, reassignTo)
+		} else {
+			if len(refs) >= len(s.Cfg.Hotkeys) {
+				fmt.Println("Cannot delete: every hotkey uses this provider — add another provider first")
+				return nil
+			}
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("Also delete the hotkeys using it (%s)?", strings.Join(refs, ", "))).
+					Affirmative("Delete them").Negative("Cancel").Value(&cascade),
+			)).Run(); err != nil {
+				return err
+			}
+			if !cascade {
+				return nil
 			}
 		}
 	}
+
 	confirmed := false
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewConfirm().Title(fmt.Sprintf("Delete provider %q?", id)).
@@ -152,6 +172,13 @@ func runDeleteProvider(s *Session, id string) error {
 	}
 	if !confirmed {
 		return nil
+	}
+	if reassignTo != "" {
+		ReassignEndpoint(s.Cfg, id, reassignTo)
+	} else if cascade {
+		for _, combo := range refs {
+			DeleteHotkey(s.Cfg, combo)
+		}
 	}
 	if err := DeleteEndpoint(s.Cfg, id); err != nil {
 		return err
@@ -202,7 +229,7 @@ func runAddProvider(s *Session) error {
 			Placeholder("https://api.example.com/v1").
 			Validate(requireNonEmpty("api base")).Value(&apiBase))
 	}
-	fields = append(fields, huh.NewInput().Title("API key").Password(true).
+	fields = append(fields, huh.NewInput().Title("API key").EchoMode(huh.EchoModePassword).
 		Validate(requireNonEmpty("api key")).Value(&apiKey))
 	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
 		return err

@@ -92,13 +92,21 @@ func runModelFlow(s *Session) error {
 
 	var removedPaths []string
 	for _, name := range diff.Remove {
+		if reason := RemoveModelBlocked(s.Cfg, localEndpointID, name); reason != "" {
+			fmt.Printf("Keeping %q: %s\n", name, reason)
+			continue
+		}
 		if refs := HotkeysUsingModel(s.Cfg, localEndpointID, name); len(refs) > 0 {
+			if len(refs) >= len(s.Cfg.Hotkeys) {
+				fmt.Printf("Keeping %q: every hotkey uses it — add another hotkey first\n", name)
+				continue
+			}
 			proceed := false
 			err := huh.NewForm(huh.NewGroup(
 				huh.NewConfirm().
-					Title(fmt.Sprintf("Remove %q? These hotkeys use it and will break: %s",
+					Title(fmt.Sprintf("Remove %q and delete the hotkeys using it (%s)?",
 						name, strings.Join(refs, ", "))).
-					Affirmative("Remove anyway").Negative("Keep it").
+					Affirmative("Remove them").Negative("Keep it").
 					Value(&proceed),
 			)).Run()
 			if err != nil {
@@ -107,7 +115,11 @@ func runModelFlow(s *Session) error {
 			if !proceed {
 				continue
 			}
+			for _, combo := range refs {
+				DeleteHotkey(s.Cfg, combo)
+			}
 		}
+		// ok=false is unreachable: diff.Remove names come from the same registered map Unregister reads.
 		if path, ok := models.Unregister(s.Cfg, localEndpointID, name); ok {
 			removedPaths = append(removedPaths, path)
 			s.Dirty = true
@@ -125,11 +137,7 @@ func runModelFlow(s *Session) error {
 			return err
 		}
 		if deleteFiles {
-			for _, p := range removedPaths {
-				if err := osRemove(p); err != nil {
-					fmt.Printf("Could not delete %s: %v\n", p, err)
-				}
-			}
+			s.PendingDeletes = append(s.PendingDeletes, removedPaths...)
 		}
 	}
 

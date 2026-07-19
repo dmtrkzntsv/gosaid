@@ -143,6 +143,137 @@ func TestResetForFirstRun(t *testing.T) {
 	}
 }
 
+func TestDeleteHotkeyBlocked(t *testing.T) {
+	cases := []struct {
+		name    string
+		hotkeys map[string]config.Hotkey
+		combo   string
+		blocked bool
+	}{
+		{
+			name:    "last hotkey blocked",
+			hotkeys: map[string]config.Hotkey{"option+space": {}},
+			combo:   "option+space",
+			blocked: true,
+		},
+		{
+			name: "one of several allowed",
+			hotkeys: map[string]config.Hotkey{
+				"option+space": {}, "option+left": {},
+			},
+			combo:   "option+space",
+			blocked: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{Hotkeys: tc.hotkeys}
+			reason := DeleteHotkeyBlocked(cfg, tc.combo)
+			if tc.blocked && reason == "" {
+				t.Fatal("expected a block reason, got none")
+			}
+			if !tc.blocked && reason != "" {
+				t.Fatalf("expected no block, got %q", reason)
+			}
+		})
+	}
+}
+
+func TestDeleteEndpointBlocked(t *testing.T) {
+	cases := []struct {
+		name    string
+		cfg     *config.Config
+		id      string
+		blocked bool
+	}{
+		{
+			name: "only endpoint blocked",
+			cfg: &config.Config{Drivers: []config.Driver{
+				{Driver: config.DriverOpenAICompatible, Endpoints: []config.Endpoint{{ID: "openai"}}},
+			}},
+			id:      "openai",
+			blocked: true,
+		},
+		{
+			name:    "two endpoints across drivers allowed",
+			cfg:     testConfig(),
+			id:      "openai",
+			blocked: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			reason := DeleteEndpointBlocked(tc.cfg, tc.id)
+			if tc.blocked && reason == "" {
+				t.Fatal("expected a block reason, got none")
+			}
+			if !tc.blocked && reason != "" {
+				t.Fatalf("expected no block, got %q", reason)
+			}
+		})
+	}
+}
+
+func TestRemoveModelBlocked(t *testing.T) {
+	oneEndpointOneModel := &config.Config{Drivers: []config.Driver{
+		{Driver: config.DriverWhisperCPP, Endpoints: []config.Endpoint{
+			{ID: "local", Config: config.EndpointConfig{Models: map[string]string{"base": "/m/b.bin"}}},
+		}},
+	}}
+	cases := []struct {
+		name       string
+		cfg        *config.Config
+		endpointID string
+		model      string
+		blocked    bool
+	}{
+		{
+			name:       "last model of the only endpoint blocked",
+			cfg:        oneEndpointOneModel,
+			endpointID: "local",
+			model:      "base",
+			blocked:    true,
+		},
+		{
+			name:       "one of two models on the only endpoint allowed",
+			cfg:        testConfig(),
+			endpointID: "local",
+			model:      "base",
+			blocked:    false,
+		},
+		{
+			name: "last model but other endpoints exist allowed",
+			cfg: &config.Config{Drivers: []config.Driver{
+				{Driver: config.DriverOpenAICompatible, Endpoints: []config.Endpoint{{ID: "openai"}}},
+				{Driver: config.DriverWhisperCPP, Endpoints: []config.Endpoint{
+					{ID: "local", Config: config.EndpointConfig{Models: map[string]string{"base": "/m/b.bin"}}},
+				}},
+			}},
+			endpointID: "local",
+			model:      "base",
+			blocked:    false,
+		},
+		{
+			name:       "unknown model name allowed",
+			cfg:        oneEndpointOneModel,
+			endpointID: "local",
+			model:      "ghost",
+			blocked:    false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			reason := RemoveModelBlocked(tc.cfg, tc.endpointID, tc.model)
+			if tc.blocked && reason == "" {
+				t.Fatal("expected a block reason, got none")
+			}
+			if !tc.blocked && reason != "" {
+				t.Fatalf("expected no block, got %q", reason)
+			}
+		})
+	}
+}
+
 func TestDiffModelSelection(t *testing.T) {
 	registered := map[string]string{"base": "/m/b.bin", "tiny": "/m/t.bin"}
 	d := DiffModelSelection(registered, []string{"base", "large-v3-turbo"})

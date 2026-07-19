@@ -218,6 +218,55 @@ func ResetForFirstRun(cfg *config.Config) {
 	cfg.Hotkeys = map[string]config.Hotkey{}
 }
 
+// DeleteHotkeyBlocked returns a non-empty reason when deleting combo must be
+// refused: it is the last hotkey (the daemon requires at least one).
+func DeleteHotkeyBlocked(cfg *config.Config, combo string) string {
+	if len(cfg.Hotkeys) <= 1 {
+		return "this is the only hotkey — add another before deleting it"
+	}
+	return ""
+}
+
+// DeleteEndpointBlocked returns a non-empty reason when deleting the endpoint
+// must be refused: it is the only endpoint (the daemon requires a provider).
+func DeleteEndpointBlocked(cfg *config.Config, id string) string {
+	count := 0
+	for _, d := range cfg.Drivers {
+		count += len(d.Endpoints)
+	}
+	if count <= 1 {
+		return "this is the only provider — add another before deleting it"
+	}
+	return ""
+}
+
+// RemoveModelBlocked returns a non-empty reason when unchecking a model must
+// be refused: it is the last model of the only remaining endpoint.
+func RemoveModelBlocked(cfg *config.Config, endpointID, name string) string {
+	var models map[string]string
+	for _, d := range cfg.Drivers {
+		for _, e := range d.Endpoints {
+			if e.ID == endpointID {
+				models = e.Config.Models
+			}
+		}
+	}
+	if len(models) != 1 {
+		return ""
+	}
+	if _, ok := models[name]; !ok {
+		return ""
+	}
+	count := 0
+	for _, d := range cfg.Drivers {
+		count += len(d.Endpoints)
+	}
+	if count == 1 {
+		return "this is the only provider's last model"
+	}
+	return ""
+}
+
 // ModelDiff is the outcome of the local-model multi-select: names to
 // download+register and names to unregister.
 type ModelDiff struct {

@@ -11,6 +11,13 @@ type Session struct {
 	Path  string
 	Cfg   *config.Config
 	Dirty bool
+
+	// PendingDeletes holds file paths to remove only after a successful
+	// save. Deleting a model file immediately (before the config change
+	// that stops referencing it is saved) risks leaving config.json
+	// pointing at a file that no longer exists if the session is
+	// discarded.
+	PendingDeletes []string
 }
 
 // LoadSession resolves the config path and loads (or creates) the config.

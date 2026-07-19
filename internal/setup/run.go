@@ -54,7 +54,10 @@ func Run(args []string) int {
 				return 0
 			} else if !errors.Is(err, huh.ErrUserAborted) {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				return 1
+				if !s.Dirty || !confirmSaveAfterError() {
+					return 1
+				}
+				// fall through to finish() below to save what we have
 			}
 		}
 		if err := finish(s); err != nil {
@@ -66,6 +69,21 @@ func Run(args []string) int {
 		}
 		return 0
 	}
+}
+
+// confirmSaveAfterError asks whether to save a dirty session after a
+// non-abort flow error. A second error or abort while asking counts as a
+// decline (returns false) so the caller discards.
+func confirmSaveAfterError() bool {
+	save := true
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Save the changes made so far?").
+			Value(&save),
+	)).Run(); err != nil {
+		return false
+	}
+	return save
 }
 
 // confirmDiscardOnAbort handles Ctrl+C/Esc out of a form. With no unsaved
@@ -102,6 +120,12 @@ func finish(s *Session) error {
 		return err
 	}
 	fmt.Printf("Saved %s\n", s.Path)
+	for _, p := range s.PendingDeletes {
+		if err := osRemove(p); err != nil {
+			fmt.Printf("Could not delete %s: %v\n", p, err)
+		}
+	}
+	s.PendingDeletes = nil
 	offerRestart()
 	return nil
 }

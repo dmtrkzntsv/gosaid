@@ -72,6 +72,10 @@ func runHotkeyActions(s *Session, combo string) error {
 		a := AnswersFrom(combo, s.Cfg.Hotkeys[combo])
 		return runHotkeyWizard(s, &a)
 	case "delete":
+		if reason := DeleteHotkeyBlocked(s.Cfg, combo); reason != "" {
+			fmt.Println("Cannot delete: " + reason)
+			return nil
+		}
 		confirmed := false
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().Title(fmt.Sprintf("Delete hotkey %q?", combo)).
