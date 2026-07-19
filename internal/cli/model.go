@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
@@ -23,7 +24,7 @@ func RunModel(args []string) int {
 	}
 	fs := flag.NewFlagSet("model download", flag.ContinueOnError)
 	name := fs.String("name", "", "model name to register (default: derived from file name)")
-	endpoint := fs.String("endpoint", "local", "whisper_cpp endpoint id to register under")
+	endpoint := fs.String("endpoint", "", "endpoint id to register under (default: local for whisper models, local-llm for .gguf chat models)")
 	force := fs.Bool("force", false, "overwrite an existing file and config entry")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
@@ -43,6 +44,10 @@ func RunModel(args []string) int {
 	if *name == "" {
 		*name = deriveModelName(rest[1])
 	}
+	driver, defaultEndpoint := downloadDefaults(rest[1])
+	if *endpoint == "" {
+		*endpoint = defaultEndpoint
+	}
 
 	cfgPath, err := config.Path()
 	if err == nil {
@@ -53,6 +58,7 @@ func RunModel(args []string) int {
 				repo: rest[0], file: rest[1], name: *name, endpointID: *endpoint,
 				cfgPath: cfgPath, modelsDir: modelsDir,
 				baseURL: "https://huggingface.co", force: *force,
+				driver: driver,
 			})
 		}
 	}
@@ -63,17 +69,38 @@ func RunModel(args []string) int {
 	return 0
 }
 
-// deriveModelName turns a model file name into a short registered name:
-// strip the "ggml-" prefix and the final extension. "ggml-base.bin" → "base".
+// quantSuffixRe matches a trailing GGUF quantization label such as
+// -Q4_K_M, -q4_0, -IQ2_XS, -F16, or -BF16.
+var quantSuffixRe = regexp.MustCompile(`(?i)-(i?q[0-9][a-z0-9_]*|f16|f32|bf16)$`)
+
+// deriveModelName turns a model file name into a short registered name.
+// Whisper GGML files drop the "ggml-" prefix ("ggml-base.bin" → "base");
+// GGUF files drop a quantization suffix ("gemma-3-4b-it-Q4_K_M.gguf" →
+// "gemma-3-4b-it").
 func deriveModelName(file string) string {
 	base := filepath.Base(file)
-	base = strings.TrimSuffix(base, filepath.Ext(base))
+	ext := filepath.Ext(base)
+	base = strings.TrimSuffix(base, ext)
+	if strings.EqualFold(ext, ".gguf") {
+		return quantSuffixRe.ReplaceAllString(base, "")
+	}
 	return strings.TrimPrefix(base, "ggml-")
+}
+
+// downloadDefaults maps a model file name to its driver type and default
+// endpoint id: .gguf files are chat models for llama_cpp, everything else
+// is a whisper GGML model.
+func downloadDefaults(file string) (driver, endpointID string) {
+	if strings.EqualFold(filepath.Ext(file), ".gguf") {
+		return config.DriverLlamaCPP, "local-llm"
+	}
+	return config.DriverWhisperCPP, "local"
 }
 
 type modelDownloadOpts struct {
 	repo, file, name, endpointID string
 	cfgPath, modelsDir, baseURL  string
+	driver                       string
 	force                        bool
 }
 
@@ -82,11 +109,11 @@ func modelDownload(o modelDownloadOpts) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if driver := otherDriverForEndpoint(cfg, o.endpointID); driver != "" {
+	if driver := otherDriverForEndpoint(cfg, o.endpointID, o.driver); driver != "" {
 		return fmt.Errorf("endpoint %q already exists with driver %q; choose a different --endpoint id",
 			o.endpointID, driver)
 	}
-	if existing := findWhisperModel(cfg, o.endpointID, o.name); existing != "" && !o.force {
+	if existing := findLocalModel(cfg, o.driver, o.endpointID, o.name); existing != "" && !o.force {
 		return fmt.Errorf("model %q is already registered on endpoint %q → %s (use --force to overwrite)",
 			o.name, o.endpointID, existing)
 	}
@@ -105,13 +132,17 @@ func modelDownload(o modelDownloadOpts) error {
 		return err
 	}
 
-	registerModel(cfg, o.endpointID, o.name, dest)
+	registerModel(cfg, o.driver, o.endpointID, o.name, dest)
 	if err := config.Save(o.cfgPath, cfg); err != nil {
 		return fmt.Errorf("update config: %w", err)
 	}
 
-	fmt.Printf("downloaded %s (%.1f MB)\nregistered model %q on endpoint %q\n\nuse it in a hotkey:\n  \"transcribe\": { \"model\": \"%s:%s\" }\n",
-		dest, float64(size)/(1<<20), o.name, o.endpointID, o.endpointID, o.name)
+	stage := "transcribe"
+	if o.driver == config.DriverLlamaCPP {
+		stage = "enhance"
+	}
+	fmt.Printf("downloaded %s (%.1f MB)\nregistered model %q on endpoint %q\n\nuse it in a hotkey:\n  \"%s\": { \"model\": \"%s:%s\" }\n",
+		dest, float64(size)/(1<<20), o.name, o.endpointID, stage, o.endpointID, o.name)
 	return nil
 }
 
@@ -170,11 +201,11 @@ func (p *progressReader) Read(b []byte) (int, error) {
 }
 
 // otherDriverForEndpoint scans all drivers for an endpoint with the given id
-// belonging to a driver other than whisper_cpp, returning that driver's type
-// (or "" if the id is unused or already owned by whisper_cpp).
-func otherDriverForEndpoint(cfg *config.Config, endpointID string) string {
+// belonging to a driver other than ownDriver, returning that driver's type
+// (or "" if the id is unused or already owned by ownDriver).
+func otherDriverForEndpoint(cfg *config.Config, endpointID, ownDriver string) string {
 	for _, d := range cfg.Drivers {
-		if d.Driver == config.DriverWhisperCPP {
+		if d.Driver == ownDriver {
 			continue
 		}
 		for _, e := range d.Endpoints {
@@ -186,10 +217,11 @@ func otherDriverForEndpoint(cfg *config.Config, endpointID string) string {
 	return ""
 }
 
-// findWhisperModel returns the registered path for name on the endpoint, or "".
-func findWhisperModel(cfg *config.Config, endpointID, name string) string {
+// findLocalModel returns the registered path for name on the endpoint under
+// driver, or "".
+func findLocalModel(cfg *config.Config, driver, endpointID, name string) string {
 	for _, d := range cfg.Drivers {
-		if d.Driver != config.DriverWhisperCPP {
+		if d.Driver != driver {
 			continue
 		}
 		for _, e := range d.Endpoints {
@@ -202,11 +234,11 @@ func findWhisperModel(cfg *config.Config, endpointID, name string) string {
 }
 
 // registerModel adds models[name]=path to the endpoint, creating the
-// whisper_cpp driver block and/or endpoint if missing.
-func registerModel(cfg *config.Config, endpointID, name, path string) {
+// driver block and/or endpoint if missing.
+func registerModel(cfg *config.Config, driver, endpointID, name, path string) {
 	for di := range cfg.Drivers {
 		d := &cfg.Drivers[di]
-		if d.Driver != config.DriverWhisperCPP {
+		if d.Driver != driver {
 			continue
 		}
 		for ei := range d.Endpoints {
@@ -227,7 +259,7 @@ func registerModel(cfg *config.Config, endpointID, name, path string) {
 		return
 	}
 	cfg.Drivers = append(cfg.Drivers, config.Driver{
-		Driver: config.DriverWhisperCPP,
+		Driver: driver,
 		Endpoints: []config.Endpoint{{
 			ID:     endpointID,
 			Config: config.EndpointConfig{Models: map[string]string{name: path}},

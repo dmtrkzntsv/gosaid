@@ -25,6 +25,64 @@ func TestDeriveModelName(t *testing.T) {
 	}
 }
 
+func TestDeriveModelNameGGUF(t *testing.T) {
+	cases := map[string]string{
+		"gemma-3-4b-it-Q4_K_M.gguf":       "gemma-3-4b-it",
+		"qwen2.5-0.5b-instruct-q4_0.gguf": "qwen2.5-0.5b-instruct",
+		"Llama-3.2-1B-Instruct-F16.gguf":  "Llama-3.2-1B-Instruct",
+		"plain.gguf":                      "plain",
+	}
+	for in, want := range cases {
+		if got := deriveModelName(in); got != want {
+			t.Errorf("deriveModelName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDownloadDefaults(t *testing.T) {
+	if d, e := downloadDefaults("ggml-base.bin"); d != config.DriverWhisperCPP || e != "local" {
+		t.Fatalf("bin defaults = %q/%q", d, e)
+	}
+	if d, e := downloadDefaults("gemma-3-4b-it-Q4_K_M.gguf"); d != config.DriverLlamaCPP || e != "local-llm" {
+		t.Fatalf("gguf defaults = %q/%q", d, e)
+	}
+}
+
+func TestModelDownloadGGUF(t *testing.T) {
+	opts, cfgPath := downloadEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write([]byte("FAKE-GGUF-BYTES"))
+	}))
+	opts.repo, opts.file = "ggml-org/gemma-3-4b-it-GGUF", "gemma-3-4b-it-Q4_K_M.gguf"
+	opts.name, opts.endpointID = "gemma", "local-llm"
+	opts.driver = config.DriverLlamaCPP
+	if err := modelDownload(opts); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found string
+	for _, d := range cfg.Drivers {
+		if d.Driver != config.DriverLlamaCPP {
+			continue
+		}
+		for _, e := range d.Endpoints {
+			if e.ID == "local-llm" {
+				found = e.Config.Models["gemma"]
+			}
+		}
+	}
+	if found == "" || !strings.HasSuffix(found, "gemma-3-4b-it-Q4_K_M.gguf") {
+		t.Fatalf("llama_cpp endpoint not registered, got path %q", found)
+	}
+}
+
 func downloadEnv(t *testing.T, handler http.Handler) (opts modelDownloadOpts, cfgPath string) {
 	t.Helper()
 	srv := httptest.NewServer(handler)
@@ -38,7 +96,7 @@ func downloadEnv(t *testing.T, handler http.Handler) (opts modelDownloadOpts, cf
 		repo: "ggerganov/whisper.cpp", file: "ggml-base.bin",
 		name: "base", endpointID: "local",
 		cfgPath: cfgPath, modelsDir: filepath.Join(dir, "models"),
-		baseURL: srv.URL,
+		baseURL: srv.URL, driver: config.DriverWhisperCPP,
 	}, cfgPath
 }
 
