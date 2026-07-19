@@ -52,5 +52,5 @@ func (l *LlamaCPP) Transcribe(ctx context.Context, samples []float32, sampleRate
 // TranslateSpeech is a backstop, as Transcribe.
 func (l *LlamaCPP) TranslateSpeech(ctx context.Context, samples []float32, sampleRate int,
 	model string, opts TranslateSpeechOptions) (string, error) {
-	return "", fmt.Errorf("llama_cpp endpoints do not support transcription")
+	return "", fmt.Errorf("llama_cpp endpoints do not support speech translation")
 }
