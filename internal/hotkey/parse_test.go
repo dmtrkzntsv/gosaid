@@ -18,9 +18,9 @@ func TestParse_Valid(t *testing.T) {
 
 func TestParse_Invalid(t *testing.T) {
 	cases := []string{
-		"",           // empty
-		"space",      // no modifier
-		"ctrl+",      // empty tail
+		"",      // empty
+		"space", // no modifier
+		"ctrl+", // empty tail
 		"ctrl+fictional",
 		"bogus+space",
 	}

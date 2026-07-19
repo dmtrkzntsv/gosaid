@@ -1,4 +1,4 @@
-.PHONY: build test fmt vet clean release-snapshot vendor-whisper
+.PHONY: build test fmt vet clean release-snapshot vendor vendor-ggml vendor-whisper vendor-llama
 
 BIN := gosaid
 PKG := ./cmd/gosaid
@@ -20,9 +20,19 @@ clean:
 	rm -f $(BIN)
 	rm -rf dist out
 
-# Re-vendor whisper.cpp sources at a pinned tag (see internal/whisper/cvendor/VERSION).
+# Re-vendor the C libraries at the tags pinned in scripts/vendor-versions.env.
+# ggml is shared: whisper.cpp and llama.cpp must agree on its version, so
+# change tags together and re-run `make vendor`.
+vendor: vendor-ggml vendor-whisper vendor-llama
+
+vendor-ggml:
+	scripts/vendor-ggml.sh $(LLAMA_TAG)
+
 vendor-whisper:
 	scripts/vendor-whisper.sh $(WHISPER_TAG)
+
+vendor-llama:
+	scripts/vendor-llama.sh $(LLAMA_TAG)
 
 # Native-arch dry run of the release packaging step (no signing, no upload).
 # Useful before pushing a tag to confirm the package step still works.
