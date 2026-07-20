@@ -20,22 +20,19 @@ var osRemove = os.Remove
 const defaultLocalEndpointID = "local"
 
 // runModelFlow installs one local Whisper model as a new provider: pick a
-// curated model (or paste a Hugging Face link), download it, and name the
-// provider it is registered under.
+// curated model, download it, and name the provider it is registered under.
 //
 // This is an install flow, not a manager: removing a model is done from the
-// provider list, which already handles the hotkeys that reference it.
+// provider list, which already handles the hotkeys that reference it. Models
+// outside the catalog are installed with `gosaid model download`.
 func runModelFlow(s *Session) error {
-	opts := make([]huh.Option[string], 0, len(models.Catalog)+2)
+	opts := make([]huh.Option[string], 0, len(models.Catalog)+1)
 	for _, e := range models.Catalog {
 		opts = append(opts, huh.NewOption(
 			fmt.Sprintf("%s · %s · %s", e.Name, e.Size, e.Note), e.Name,
 		))
 	}
-	opts = append(opts,
-		huh.NewOption("Add a model from a Hugging Face link…", pickAdd),
-		huh.NewOption("← Back", pickBack),
-	)
+	opts = append(opts, huh.NewOption("← Back", pickBack))
 
 	choice := ""
 	if err := huh.NewForm(huh.NewGroup(
@@ -57,30 +54,23 @@ func runModelFlow(s *Session) error {
 		return err
 	}
 
-	repo, file, modelName := models.CatalogRepo, "", ""
-	if choice == pickAdd {
-		repo, file, err = askModelLink()
-		if err != nil {
-			return err
-		}
-		modelName = models.DeriveName(file)
-	} else {
-		for _, e := range models.Catalog {
-			if e.Name == choice {
-				file, modelName = e.File, e.Name
-			}
-		}
-		if file == "" {
-			return fmt.Errorf("no catalog entry for %q", choice)
+	file := ""
+	for _, e := range models.Catalog {
+		if e.Name == choice {
+			file = e.File
 		}
 	}
+	if file == "" {
+		return fmt.Errorf("no catalog entry for %q", choice)
+	}
 
-	fmt.Printf("Downloading %s…\n", modelName)
-	dest, _, err := models.FetchModelFile(models.HuggingFaceBase, repo, file, modelsDir, false)
+	fmt.Printf("Downloading %s…\n", choice)
+	dest, _, err := models.FetchModelFile(models.HuggingFaceBase, models.CatalogRepo, file, modelsDir, false)
 	if err != nil {
 		fmt.Printf("Download failed: %v\n", err)
 		return nil
 	}
+	modelName := choice
 
 	endpointID, err := askLocalProviderName(s)
 	if err != nil {
@@ -119,26 +109,6 @@ func askLocalProviderName(s *Session) (string, error) {
 		return "", cancelable(err)
 	}
 	return strings.TrimSpace(id), nil
-}
-
-// askModelLink asks for a Hugging Face link and splits it into repo + file.
-func askModelLink() (repo, file string, err error) {
-	var link string
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewInput().
-			Title("Hugging Face model link").
-			Description("Paste the file's page or download URL. Esc goes back.").
-			Placeholder("https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-large-v3-q5_0.bin").
-			Validate(func(v string) error {
-				_, _, err := models.ParseHuggingFaceURL(v)
-				return err
-			}).
-			Value(&link),
-	))
-	if err := form.Run(); err != nil {
-		return "", "", cancelable(err)
-	}
-	return models.ParseHuggingFaceURL(link)
 }
 
 // requireNonEmpty is a shared huh validator.

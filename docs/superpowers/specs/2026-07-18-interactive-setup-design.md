@@ -123,18 +123,18 @@ The list offers:
   deliberately short list of the two that suit most people, each with its
   approximate download size and a one-phrase note: `small` (~488 MB, fast on
   plain CPU) and `turbo` (~550 MB, the quantized `large-v3-turbo-q5_0` the
-  README already recommends as the default). Everything else — `large-v3`,
-  the `.en` variants, other quantizations — is reachable through the link
-  prompt. A curated model's registered name need not match its filename:
-  `turbo` is friendlier than `large-v3-turbo-q5_0`.
-- **`Add a model from a Hugging Face link…`** asks for a link the user can
-  paste straight from the browser: the `resolve`/`blob` URL shapes and the
-  bare `owner/repo/file` form are all accepted, and the repo and file are
-  parsed out of it.
+  README already recommends as the default). A curated model's registered
+  name need not match its filename: `turbo` is friendlier than
+  `large-v3-turbo-q5_0`.
 - **`← Back`** leaves without installing.
 
-After the model is chosen (or the link entered), it downloads immediately via
-the existing progress-streaming fetch — reusing the file if it is already on
+Anything outside the catalog — `large-v3`, the `.en` variants, other
+quantizations — is installed with `gosaid model download <repo> <file>`,
+which setup deliberately does not duplicate: pasting a URL is a
+scriptable, one-off action, not part of a guided flow.
+
+After the model is chosen it downloads immediately via the existing
+progress-streaming fetch — reusing the file if it is already on
 disk — and setup then asks for the **provider name** it should be registered
 under, defaulting to `local` (or `local2`, … when that id is taken by a cloud
 provider). The name is validated like any endpoint id: non-empty and without

@@ -198,44 +198,6 @@ func TestFetchModelFileSkipsExisting(t *testing.T) {
 	}
 }
 
-func TestParseHuggingFaceURL(t *testing.T) {
-	const wantRepo, wantFile = "ggerganov/whisper.cpp", "ggml-small.bin"
-	ok := map[string]struct{ repo, file string }{
-		"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin":               {wantRepo, wantFile},
-		"https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-small.bin":                  {wantRepo, wantFile},
-		"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true": {wantRepo, wantFile},
-		"  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin  ":           {wantRepo, wantFile},
-		"https://www.huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin":           {wantRepo, wantFile},
-		"ggerganov/whisper.cpp/ggml-small.bin":                                                   {wantRepo, wantFile},
-		// Nested paths and non-main revisions must survive intact.
-		"https://huggingface.co/owner/repo/resolve/v2/subdir/ggml-x.bin": {"owner/repo", "subdir/ggml-x.bin"},
-	}
-	for in, want := range ok {
-		repo, file, err := ParseHuggingFaceURL(in)
-		if err != nil {
-			t.Errorf("%q: unexpected error: %v", in, err)
-			continue
-		}
-		if repo != want.repo || file != want.file {
-			t.Errorf("%q → repo %q, file %q; want %q, %q", in, repo, file, want.repo, want.file)
-		}
-	}
-
-	bad := []string{
-		"",
-		"   ",
-		"https://example.com/owner/repo/resolve/main/ggml-small.bin", // wrong host
-		"https://huggingface.co/ggerganov",                           // no file
-		"ggerganov/whisper.cpp",                                      // repo only
-		"https://huggingface.co/owner/repo/resolve/main/README.md",   // not a .bin
-	}
-	for _, in := range bad {
-		if repo, file, err := ParseHuggingFaceURL(in); err == nil {
-			t.Errorf("%q should be rejected, got repo %q file %q", in, repo, file)
-		}
-	}
-}
-
 func TestCatalog(t *testing.T) {
 	if len(Catalog) == 0 {
 		t.Fatal("catalog must offer at least one model")
