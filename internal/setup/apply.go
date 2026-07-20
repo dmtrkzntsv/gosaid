@@ -137,20 +137,6 @@ func HotkeysUsingEndpoint(cfg *config.Config, id string) []string {
 	return out
 }
 
-// HotkeysUsingModel returns the sorted combos of hotkeys whose transcribe
-// stage references endpointID:model.
-func HotkeysUsingModel(cfg *config.Config, endpointID, model string) []string {
-	want := endpointID + ":" + model
-	var out []string
-	for combo, hk := range cfg.Hotkeys {
-		if hk.Transcribe.Model == want {
-			out = append(out, combo)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
 // ReassignEndpoint rewrites every stage ref pointing at fromID to point at
 // toID. When toID's api_base matches a preset, the stage-appropriate
 // suggested model is substituted; otherwise the model name is kept.
@@ -239,31 +225,3 @@ func DeleteEndpointBlocked(cfg *config.Config, id string) string {
 	}
 	return ""
 }
-
-// RemoveModelBlocked returns a non-empty reason when unchecking a model must
-// be refused: it is the last model of the only remaining endpoint.
-func RemoveModelBlocked(cfg *config.Config, endpointID, name string) string {
-	var models map[string]string
-	for _, d := range cfg.Drivers {
-		for _, e := range d.Endpoints {
-			if e.ID == endpointID {
-				models = e.Config.Models
-			}
-		}
-	}
-	if len(models) != 1 {
-		return ""
-	}
-	if _, ok := models[name]; !ok {
-		return ""
-	}
-	count := 0
-	for _, d := range cfg.Drivers {
-		count += len(d.Endpoints)
-	}
-	if count == 1 {
-		return "this is the only provider's last model"
-	}
-	return ""
-}
-

@@ -94,7 +94,8 @@ Delete warns when hotkeys reference the endpoint: list them, and require
 reassignment to another compatible endpoint when one exists; otherwise offer
 to delete the referencing hotkeys instead. Deletions that would leave the
 config with no provider or no hotkey are blocked (the daemon requires at
-least one of each).
+least one of each). Deleting a local provider also offers to remove its
+downloaded model files, which is how local models are uninstalled.
 
 **Add (preset-driven).** Preset list, in order: **Local Whisper (on-device)**,
 OpenAI, Groq, OpenRouter, Custom (OpenAI-compatible). Providers without a
@@ -111,8 +112,12 @@ Presets live in a small table in `internal/setup` — easy to extend.
 
 ### Local model manager
 
-A single select — one local model is the normal case, so this is a pick-one
-list rather than a checklist:
+An install flow, not a manager: pick a model, download it, name the provider
+it is registered under. Removing a local model is done by deleting its
+provider from the provider manager, which already resolves the hotkeys that
+reference it.
+
+The list offers:
 
 - **Curated models** from the official `ggerganov/whisper.cpp` HF repo — a
   deliberately short list of the two that suit most people, each with its
@@ -121,31 +126,27 @@ list rather than a checklist:
   README already recommends as the default). Everything else — `large-v3`,
   the `.en` variants, other quantizations — is reachable through the link
   prompt. A curated model's registered name need not match its filename:
-  `turbo` is friendlier than `large-v3-turbo-q5_0`. Installed models are
-  marked `✓`, including any added from a link.
+  `turbo` is friendlier than `large-v3-turbo-q5_0`.
 - **`Add a model from a Hugging Face link…`** asks for a link the user can
   paste straight from the browser: the `resolve`/`blob` URL shapes and the
   bare `owner/repo/file` form are all accepted, and the repo and file are
   parsed out of it.
-- **`← Back`** leaves the manager.
+- **`← Back`** leaves without installing.
 
-Picking an entry acts on it immediately and re-renders the list:
+After the model is chosen (or the link entered), it downloads immediately via
+the existing progress-streaming fetch — reusing the file if it is already on
+disk — and setup then asks for the **provider name** it should be registered
+under, defaulting to `local` (or `local2`, … when that id is taken by a cloud
+provider). The name is validated like any endpoint id: non-empty and without
+a `:`, since hotkeys reference the model as `name:model`. Entering the id of
+an existing local provider adds the model to it.
 
-- *Not installed* → download via the existing progress-streaming fetch in the
-  model-download internals (skip if the file already exists on disk), register
-  on the `local` endpoint.
-- *Installed* (`✓`) → offer to remove it. If a hotkey references
-  `local:<name>`, the same prompt says those hotkeys will be deleted;
-  declining keeps the model. Removals that would leave no provider, or that
-  would delete every hotkey, are blocked (the daemon requires at least one of
-  each). The same prompt asks whether to delete the model file from disk
-  (default yes).
-
-Downloads execute immediately (disk side effects); the config
-registration rides the final save like every other change. Model file
-*deletions*, by contrast, are deferred: they are only applied to disk after
-a successful save, so a discarded session never leaves config.json
-referencing a file that's already gone.
+Downloads execute immediately (disk side effects); the config registration
+rides the final save like every other change. Model file *deletions* — which
+happen when a local provider is deleted from the provider manager — are
+deferred: they are only applied to disk after a successful save, so a
+discarded session never leaves config.json referencing a file that's already
+gone.
 
 ### Microphone
 

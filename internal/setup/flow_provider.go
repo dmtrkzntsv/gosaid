@@ -2,11 +2,13 @@ package setup
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"charm.land/huh/v2"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
+	"github.com/dmtrkzntsv/gosaid/internal/models"
 )
 
 // Picker sentinels — \x00 cannot collide with endpoint ids or combos.
@@ -165,11 +167,22 @@ func runDeleteProvider(s *Session, id string) error {
 		}
 	}
 
+	// A local provider owns downloaded model files, so deleting it should
+	// offer to reclaim that disk space too.
+	localFiles := localModelFiles(s.Cfg, id)
 	confirmed := false
-	if err := huh.NewForm(huh.NewGroup(
+	deleteFiles := true
+	fields := []huh.Field{
 		huh.NewConfirm().Title(fmt.Sprintf("Delete provider %q?", id)).
 			Affirmative("Delete").Negative("Cancel").Value(&confirmed),
-	)).Run(); err != nil {
+	}
+	if len(localFiles) > 0 {
+		fields = append(fields, huh.NewConfirm().
+			Title(fmt.Sprintf("Also delete its %d model file(s) from disk?", len(localFiles))).
+			Description("Model files are large; keeping them lets you re-add without re-downloading.").
+			Value(&deleteFiles))
+	}
+	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
 		return cancelable(err)
 	}
 	if !confirmed {
@@ -185,8 +198,24 @@ func runDeleteProvider(s *Session, id string) error {
 	if err := DeleteEndpoint(s.Cfg, id); err != nil {
 		return err
 	}
+	if deleteFiles {
+		// Removed only after a successful save, so a discarded session never
+		// leaves the config pointing at files that are already gone.
+		s.PendingDeletes = append(s.PendingDeletes, localFiles...)
+	}
 	s.Dirty = true
 	return nil
+}
+
+// localModelFiles returns the model file paths a whisper_cpp endpoint owns,
+// sorted. Empty for cloud endpoints, which own no files.
+func localModelFiles(cfg *config.Config, id string) []string {
+	var paths []string
+	for _, p := range models.RegisteredModels(cfg, id) {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 // runAddProvider is the preset-driven add flow. Also used by the first-run

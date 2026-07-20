@@ -85,21 +85,15 @@ func TestListHeightLeavesRoomForChrome(t *testing.T) {
 	}
 }
 
-// The model picker mixes model names with the pickAdd/pickBack action rows in
-// one select. Those actions are dispatched in a switch before the choice is
-// treated as a model name — if one ever fell through, installModel would try
-// to download a NUL-prefixed "model" and register it in the config.
+// The model list mixes catalog names with the pickAdd/pickBack action rows in
+// one select, and a name that matched a catalog entry would make the action
+// unreachable (or worse, be treated as a model to download).
 func TestModelPickerActionsAreNotModelNames(t *testing.T) {
 	for _, sentinel := range []string{pickAdd, pickBack} {
 		for _, e := range models.Catalog {
 			if e.Name == sentinel {
 				t.Fatalf("catalog model %q collides with a picker action", e.Name)
 			}
-		}
-		// installModel looks the choice up in the catalog and errors when it
-		// finds nothing, so a leaked action can't silently become a download.
-		if err := installModel(&Session{Cfg: config.Default()}, sentinel); err == nil {
-			t.Errorf("installModel(%q) must reject a picker action, got nil", sentinel)
 		}
 	}
 }
