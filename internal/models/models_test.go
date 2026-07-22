@@ -285,16 +285,13 @@ func TestCatalog(t *testing.T) {
 	if len(Catalog) == 0 {
 		t.Fatal("catalog must offer at least one model")
 	}
+	var whisper, chat int
 	seenNames := map[string]bool{}
 	seenFiles := map[string]bool{}
 	for _, e := range Catalog {
-		if e.Name == "" || e.File == "" || e.Size == "" || e.Note == "" {
+		if e.Name == "" || e.File == "" || e.Size == "" || e.Note == "" || e.Kind == "" {
 			t.Errorf("incomplete entry: %+v", e)
 		}
-		// Names become model refs ("local:turbo"), so they must be unique and
-		// colon-free. They need NOT equal DeriveName(File): the curated names
-		// are deliberately friendlier than some filenames (turbo, not
-		// large-v3-turbo-q5_0).
 		if seenNames[e.Name] {
 			t.Errorf("duplicate model name %q — refs would collide", e.Name)
 		}
@@ -302,14 +299,36 @@ func TestCatalog(t *testing.T) {
 		if strings.Contains(e.Name, ":") {
 			t.Errorf("model name %q must not contain ':'", e.Name)
 		}
-		// Two entries sharing a file would download to the same path and
-		// register two names for one file.
 		if seenFiles[e.File] {
 			t.Errorf("duplicate model file %q", e.File)
 		}
 		seenFiles[e.File] = true
-		if !strings.HasSuffix(e.File, ".bin") {
-			t.Errorf("entry %q: file %q should be a GGML .bin", e.Name, e.File)
+		switch e.Kind {
+		case "whisper":
+			whisper++
+			if !strings.HasSuffix(e.File, ".bin") {
+				t.Errorf("whisper entry %q: file %q should be a GGML .bin", e.Name, e.File)
+			}
+			if e.Repo != "" {
+				t.Errorf("whisper entry %q should use the shared CatalogRepo, got Repo %q", e.Name, e.Repo)
+			}
+		case "chat":
+			chat++
+			if !strings.HasSuffix(e.File, ".gguf") {
+				t.Errorf("chat entry %q: file %q should be a .gguf", e.Name, e.File)
+			}
+			if e.Repo == "" {
+				t.Errorf("chat entry %q must carry its own Repo", e.Name)
+			}
+		default:
+			t.Errorf("entry %q: unknown Kind %q", e.Name, e.Kind)
 		}
+		// CatalogRepoFor falls back to the shared repo for whisper.
+		if got := CatalogRepoFor(e); got == "" {
+			t.Errorf("entry %q: CatalogRepoFor returned empty", e.Name)
+		}
+	}
+	if whisper == 0 || chat == 0 {
+		t.Fatalf("want both whisper and chat entries, got %d/%d", whisper, chat)
 	}
 }
