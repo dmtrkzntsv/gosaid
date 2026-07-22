@@ -281,6 +281,27 @@ func TestFetchModelFileSkipsExisting(t *testing.T) {
 	}
 }
 
+func TestRegisteredModelsFor(t *testing.T) {
+	cfg := config.Default()
+	RegisterFor(cfg, config.DriverLlamaCPP, "text", "gemma", "/m/gemma.gguf")
+	Register(cfg, "speech", "turbo", "/m/turbo.bin") // whisper wrapper
+
+	if got := RegisteredModelsFor(cfg, config.DriverLlamaCPP, "text")["gemma"]; got != "/m/gemma.gguf" {
+		t.Errorf("chat lookup = %q", got)
+	}
+	if got := RegisteredModelsFor(cfg, config.DriverWhisperCPP, "speech")["turbo"]; got != "/m/turbo.bin" {
+		t.Errorf("whisper lookup = %q", got)
+	}
+	// Wrong driver for the endpoint returns nil.
+	if got := RegisteredModelsFor(cfg, config.DriverWhisperCPP, "text"); got != nil {
+		t.Errorf("cross-driver lookup should be nil, got %v", got)
+	}
+	// The whisper-only wrapper still works.
+	if got := RegisteredModels(cfg, "speech")["turbo"]; got != "/m/turbo.bin" {
+		t.Errorf("RegisteredModels wrapper = %q", got)
+	}
+}
+
 func TestCatalog(t *testing.T) {
 	if len(Catalog) == 0 {
 		t.Fatal("catalog must offer at least one model")

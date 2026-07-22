@@ -123,8 +123,14 @@ func DeriveName(file string) string {
 
 // RegisteredModels returns the models map for a whisper_cpp endpoint, or nil.
 func RegisteredModels(cfg *config.Config, endpointID string) map[string]string {
+	return RegisteredModelsFor(cfg, config.DriverWhisperCPP, endpointID)
+}
+
+// RegisteredModelsFor returns the models map for an endpoint under the given
+// driver, or nil when no such endpoint exists.
+func RegisteredModelsFor(cfg *config.Config, driver, endpointID string) map[string]string {
 	for _, d := range cfg.Drivers {
-		if d.Driver != config.DriverWhisperCPP {
+		if d.Driver != driver {
 			continue
 		}
 		for _, e := range d.Endpoints {
