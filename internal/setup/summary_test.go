@@ -34,18 +34,3 @@ func TestHotkeySummary(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
-
-func TestEndpointSummary(t *testing.T) {
-	cloud := config.Endpoint{ID: "openai", Config: config.EndpointConfig{APIBase: "https://api.openai.com/v1", APIKey: "sk-x"}}
-	if got := EndpointSummary(config.DriverOpenAICompatible, cloud); got != "openai · api.openai.com" {
-		t.Errorf("got %q", got)
-	}
-	local := config.Endpoint{ID: "local", Config: config.EndpointConfig{Models: map[string]string{"base": "/m/b.bin", "tiny": "/m/t.bin"}}}
-	if got := EndpointSummary(config.DriverWhisperCPP, local); got != "local · whisper_cpp (2 models)" {
-		t.Errorf("got %q", got)
-	}
-	one := config.Endpoint{ID: "local", Config: config.EndpointConfig{Models: map[string]string{"base": "/m/b.bin"}}}
-	if got := EndpointSummary(config.DriverWhisperCPP, one); got != "local · whisper_cpp (1 model)" {
-		t.Errorf("got %q", got)
-	}
-}

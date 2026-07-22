@@ -68,7 +68,9 @@ func Run(args []string) int {
 // chooseEntry runs the fresh-vs-existing branch, returning the answers to
 // pre-fill the wizard with (nil = fresh). It may reset the config in place.
 func chooseEntry(s *Session) (*HotkeyAnswers, error) {
-	if len(s.Cfg.Hotkeys) == 0 {
+	if IsUnconfigured(s.Cfg) {
+		ResetConfig(s.Cfg)
+		s.Dirty = true
 		return nil, nil // fresh
 	}
 	scratch := false
