@@ -38,7 +38,7 @@ The easiest way to configure GoSaid is the interactive setup:
 gosaid setup             # guided wizard: transcription model, hotkey, optional chat stages
 ```
 
-On a fresh install `gosaid setup` walks you through a transcription model, a hotkey, and optional local chat stages (enhance, translate, compose). For cloud providers, edit `config.json` directly. Prefer raw JSON?
+On a fresh install `gosaid setup` walks you through picking a microphone, a transcription model, a hotkey, and optional local chat stages (enhance, translate, compose). For cloud providers, edit `config.json` directly. Prefer raw JSON?
 `gosaid config` still opens the file in `$EDITOR`.
 
 Config is a single JSON file — run `gosaid config` to open it in `$EDITOR`. A complete annotated sample lives at [`internal/config/config.example.json`](internal/config/config.example.json).
@@ -151,7 +151,7 @@ Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–
 
 #### Picking a microphone
 
-By default recording uses the system default input. To override the default for a specific hotkey, edit the hotkey's `microphone` field in `config.json` — use a case-insensitive substring of the device name:
+`gosaid setup` sets the global default microphone interactively (the `microphone` field at the top level of `config.json`), used by every hotkey unless overridden. By default recording uses the system default input. To override the default for a specific hotkey, edit the hotkey's `microphone` field in `config.json` — use a case-insensitive substring of the device name:
 
 ```json
 "ctrl+alt+space": {
