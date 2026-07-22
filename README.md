@@ -13,7 +13,7 @@
 
 ```
 brew install dmtrkzntsv/tap/gosaid
-gosaid setup                   # guided setup: provider, hotkey, microphone
+gosaid setup                   # guided setup: transcription model, hotkey, optional chat stages
 brew services start gosaid     # runs in background, auto-starts at login
 ```
 
@@ -35,12 +35,10 @@ Upgrade with `brew upgrade gosaid`, stop with `brew services stop gosaid`.
 The easiest way to configure GoSaid is the interactive setup:
 
 ```
-gosaid setup             # menu: hotkeys, providers, local models, microphone
-gosaid setup hotkey      # jump straight to one topic (also: provider, model, mic)
+gosaid setup             # guided wizard: transcription model, hotkey, optional chat stages
 ```
 
-On a fresh install `gosaid setup` walks you through everything: pick a
-provider, create your first hotkey, choose a microphone. Prefer raw JSON?
+On a fresh install `gosaid setup` walks you through a transcription model, a hotkey, and optional local chat stages (enhance, translate, compose). For cloud providers, edit `config.json` directly. Prefer raw JSON?
 `gosaid config` still opens the file in `$EDITOR`.
 
 Config is a single JSON file — run `gosaid config` to open it in `$EDITOR`. A complete annotated sample lives at [`internal/config/config.example.json`](internal/config/config.example.json).
@@ -82,13 +80,13 @@ Any OpenAI-compatible API works — swap `api_base`/`api_key` for Groq, OpenRout
 
 ### Local models (no cloud)
 
-Transcription can run fully locally via embedded whisper.cpp — no API key, no network. Download a GGML model and it's registered in your config automatically as the `local` endpoint:
+Transcription can run fully locally via embedded whisper.cpp — no API key, no network. Download a GGML model and it's registered in your config automatically as the `speech` endpoint:
 
 ```
 gosaid model download ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin --name turbo
 ```
 
-Then use it in a hotkey: `"transcribe": { "model": "local:turbo" }`.
+Then use it in a hotkey: `"transcribe": { "model": "speech:turbo" }`.
 
 | Model | Size | When to use |
 |---|---|---|
@@ -110,7 +108,7 @@ Loaded models stay resident in memory for instant dictation (the model's full we
 #### Local chat models (enhance / compose / translate)
 
 The text stages can also run fully locally via embedded llama.cpp. Download
-any instruct-tuned GGUF model — it registers as the `local-llm` endpoint:
+any instruct-tuned GGUF model — it registers as the `text` endpoint:
 
 ```
 gosaid model download ggml-org/gemma-3-4b-it-GGUF gemma-3-4b-it-Q4_K_M.gguf --name gemma
@@ -121,9 +119,9 @@ Then use it in a hotkey's chat stages:
 ```json
 "cmd+shift+r": {
   "mode": "hold",
-  "transcribe": { "model": "local:turbo" },
-  "enhance":    { "model": "local-llm:gemma" },
-  "translate":  { "model": "local-llm:gemma", "output_language": "en" }
+  "transcribe": { "model": "speech:turbo" },
+  "enhance":    { "model": "text:gemma" },
+  "translate":  { "model": "text:gemma", "output_language": "en" }
 }
 ```
 
@@ -153,21 +151,13 @@ Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–
 
 #### Picking a microphone
 
-By default recording uses the system default input. To set a global default microphone, run:
-
-```
-gosaid setup mic
-```
-
-This opens an interactive picker to select the default microphone for all hotkeys — choose "System default" to clear the override.
-
-To override the default for a specific hotkey, run `gosaid setup hotkey`, select the hotkey, and answer yes to the microphone prompt. Alternatively, edit the hotkey's `microphone` field in `config.json` — use a case-insensitive substring of the device name:
+By default recording uses the system default input. To override the default for a specific hotkey, edit the hotkey's `microphone` field in `config.json` — use a case-insensitive substring of the device name:
 
 ```json
 "ctrl+alt+space": {
   "mode": "hold",
   "microphone": "usb pnp",
-  "transcribe": { "model": "local:turbo" }
+  "transcribe": { "model": "speech:turbo" }
 }
 ```
 
@@ -189,7 +179,7 @@ A full pipeline — dictate in any language, get clean English typed out:
 ```json
 "cmd+shift+r": {
   "mode": "hold",
-  "transcribe": { "model": "local:turbo" },
+  "transcribe": { "model": "speech:turbo" },
   "enhance":    { "model": "openai:gpt-5.4-nano" },
   "translate":  { "model": "openai:gpt-5.4-nano", "output_language": "en" }
 }
