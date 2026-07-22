@@ -18,8 +18,8 @@ providers are out of scope for setup — users who want them edit config.json.
 Cloud setup means API keys, endpoint ids, base URLs, and per-provider model
 names — the bulk of the previous design's complexity, for a path many users
 never take. Local setup needs none of that: models are downloaded from a
-curated list, and there is exactly one local transcription endpoint (`local`,
-whisper_cpp) and one local chat endpoint (`local-llm`, llama_cpp). Dropping
+curated list, and there is exactly one local transcription endpoint (`speech`,
+whisper_cpp) and one local chat endpoint (`text`, llama_cpp). Dropping
 cloud from setup removes the provider manager, presets, the hub menu, and the
 topic subcommands — a large net reduction — while covering the common case in
 one guided pass.
@@ -36,16 +36,40 @@ gosaid model download <repo> <file>   unchanged — scriptable model install
 Removed: the `setup hotkey|provider|model|mic` topic subcommands. `gosaid
 setup` is the only entry point; any topic argument is rejected with usage.
 
+## Entry: fresh config vs. existing
+
+The first thing `gosaid setup` does depends on whether a usable config already
+exists (any hotkey configured):
+
+- **No config yet** → run the wizard fresh (steps 1–8).
+- **Config exists** → ask **"Start from scratch?"** (yes/no):
+  - **Yes** → reset the config to empty — drop all hotkeys *and* endpoints,
+    including any cloud ones — then run the wizard fresh. Model *files* on disk
+    are kept, so the model steps re-register without re-downloading; only a
+    genuinely missing model downloads.
+  - **No** → ask **"Which hotkey?"**: a list of the existing hotkeys (each with
+    its `HotkeySummary`) plus **"+ Add a new hotkey"**.
+    - Picking an existing hotkey runs the wizard **pre-filled from it**
+      (microphone from the global setting, transcription model, mode, each
+      stage's enabled/disabled state, translate language, compose
+      instructions), editing that hotkey in place.
+    - "+ Add a new hotkey" runs the wizard fresh, except the microphone step is
+      pre-filled from the current global setting.
+
+This is the only branch in the flow; every path below is the same eight-step
+wizard, differing only in whether the steps start blank or pre-filled.
+
 ## The wizard
 
-One linear chain, always run top to bottom. Re-running `gosaid setup` adds
-another hotkey to the existing config (steps 3–8); already-installed models
-are reused, not re-downloaded.
+One linear chain, run top to bottom. Steps default to blank on a fresh run and
+to the chosen hotkey's current values when editing. Re-running `gosaid setup`
+and choosing "+ Add a new hotkey" adds another binding; already-installed
+models are reused, not re-downloaded.
 
 1. **Microphone** — select from the audio device enumeration (system default
    marked) or "System default". Sets the global `microphone`.
 2. **Transcription model** — pick `small` (~488 MB) or `turbo` (~550 MB);
-   download and register under the `local` whisper_cpp endpoint. Skipped when
+   download and register under the `speech` whisper_cpp endpoint. Skipped when
    a whisper model is already installed (the wizard uses the existing one).
 3. **Shortcut** — curated combo list (option/ctrl + arrows, F-keys, …) minus
    already-bound combos, plus "Type your own". Free text is validated by
@@ -59,7 +83,7 @@ are reused, not re-downloaded.
    instructions.
 8. **Chat model** — shown only when at least one of 5–7 is enabled: pick
    `qwen3.5-0.8b` (~563 MB) or `gemma-4-e2b` (~2.8 GB); download and register
-   under the `local-llm` llama_cpp endpoint. The one chosen model backs every
+   under the `text` llama_cpp endpoint. The one chosen model backs every
    enabled stage. Skipped when a llama_cpp model is already installed (that
    one is reused). Per-stage models remain possible by editing config.json.
 
@@ -81,7 +105,7 @@ maintainers' org, so quantizations track format changes). Whisper models
 download from `CatalogRepo` (`ggerganov/whisper.cpp`); chat models each carry
 their own repo.
 
-**Transcription (whisper_cpp, endpoint `local`)** — unchanged from the current
+**Transcription (whisper_cpp, endpoint `speech`)** — unchanged from the current
 catalog:
 
 | name | file | size |
@@ -89,7 +113,7 @@ catalog:
 | `small` | `ggml-small.bin` | ~488 MB |
 | `turbo` | `ggml-large-v3-turbo-q5_0.bin` | ~550 MB |
 
-**Chat (llama_cpp, endpoint `local-llm`)** — new:
+**Chat (llama_cpp, endpoint `text`)** — new:
 
 | name | repo | file | size |
 |---|---|---|---|
@@ -114,10 +138,10 @@ A hotkey the wizard writes, with all stages enabled:
 {
   "option+space": {
     "mode": "hold",
-    "transcribe": { "model": "local:turbo" },
-    "enhance":    { "model": "local-llm:gemma-4-e2b" },
-    "translate":  { "output_language": "en", "model": "local-llm:gemma-4-e2b" },
-    "compose":    { "model": "local-llm:gemma-4-e2b", "instructions": "…" }
+    "transcribe": { "model": "speech:turbo" },
+    "enhance":    { "model": "text:gemma-4-e2b" },
+    "translate":  { "output_language": "en", "model": "text:gemma-4-e2b" },
+    "compose":    { "model": "text:gemma-4-e2b", "instructions": "…" }
   }
 }
 ```
@@ -139,7 +163,10 @@ choice. No config version bump — every field already exists.
 - `summary.go`'s `HotkeySummary` — for the already-bound-combo display and the
   saved-hotkey confirmation.
 - `SuggestedCombos`, `config.Languages()`, `hotkey.Parse`.
-- `apply.go`'s `UpsertHotkey` and the recipe builders, reworked (below).
+- `apply.go`'s `UpsertHotkey`, and `recipe.go`'s `HotkeyAnswers`,
+  `BuildHotkey`, and `AnswersFrom` — reworked to the local-only shape (below).
+  The `RecipeOf` recipe classifier and the recipe-name constants go, since the
+  wizard no longer has a recipe menu; stages are now independent yes/no flags.
 
 **Removed:**
 - `flow_provider.go` (provider manager, presets add/edit/delete, reassignment).
@@ -163,10 +190,18 @@ choice. No config version bump — every field already exists.
   list (skipping the picker when a model of that driver is already
   registered), downloads the choice via `models.Download` with the right
   driver, and returns the model name / `endpoint:model` ref. No provider
-  naming prompt: the endpoint ids are fixed (`local`, `local-llm`).
+  naming prompt: the endpoint ids are fixed (`speech`, `text`).
+- The endpoint-id constants in `internal/models` change:
+  `DefaultWhisperEndpoint` `"local"` → `"speech"`, `DefaultLlamaEndpoint`
+  `"local-llm"` → `"text"`. This also changes the default endpoint
+  `gosaid model download` registers under, so its `--endpoint` help text and
+  any README mention update to match. Existing `local:`/`local-llm:` configs
+  keep working — nothing rewrites them; only new configs use the new ids.
 - `flow_hotkey.go` becomes the linear stage wizard: combo → mode → the three
-  yes/no stage questions → returns a `HotkeyAnswers`. It no longer offers a
-  recipe menu or per-stage model pickers; the transcribe model is the
+  yes/no stage questions → returns a `HotkeyAnswers`. On the edit path it is
+  seeded from the chosen hotkey via a pre-fill helper (`AnswersFrom`, kept
+  from the prior design and trimmed to the local-only fields). It no longer
+  offers a recipe menu or per-stage model pickers; the transcribe model is the
   installed whisper model, and every enabled chat stage uses the single chat
   ref from step 8.
 - `run.go`'s `Run` runs the eight steps in sequence instead of dispatching a
@@ -175,7 +210,7 @@ choice. No config version bump — every field already exists.
 `models.Download` and `DownloadDefaults` (from the llama.cpp merge) already
 register `.gguf` under llama_cpp and `.bin` under whisper_cpp, so the wizard
 passes the catalog entry's file and lets the driver follow from the
-extension. The chat entries are `.gguf`, so they land under `local-llm`
+extension. The chat entries are `.gguf`, so they land under `text`
 automatically.
 
 `models.RegisteredModels` is whisper-only (it hardcodes `DriverWhisperCPP`),
