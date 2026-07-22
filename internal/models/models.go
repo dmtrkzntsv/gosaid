@@ -18,8 +18,8 @@ import (
 
 // Default endpoint ids per driver, used when the caller doesn't name one.
 const (
-	DefaultWhisperEndpoint = "local"
-	DefaultLlamaEndpoint   = "local-llm"
+	DefaultWhisperEndpoint = "speech"
+	DefaultLlamaEndpoint   = "text"
 )
 
 // DownloadOpts configures Download. Driver defaults to whisper_cpp when

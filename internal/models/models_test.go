@@ -40,10 +40,16 @@ func TestDeriveModelNameGGUF(t *testing.T) {
 }
 
 func TestDownloadDefaults(t *testing.T) {
-	if d, e := DownloadDefaults("ggml-base.bin"); d != config.DriverWhisperCPP || e != DefaultWhisperEndpoint {
+	if DefaultWhisperEndpoint != "speech" {
+		t.Errorf("DefaultWhisperEndpoint = %q, want speech", DefaultWhisperEndpoint)
+	}
+	if DefaultLlamaEndpoint != "text" {
+		t.Errorf("DefaultLlamaEndpoint = %q, want text", DefaultLlamaEndpoint)
+	}
+	if d, e := DownloadDefaults("ggml-base.bin"); d != config.DriverWhisperCPP || e != "speech" {
 		t.Fatalf("bin defaults = %q/%q", d, e)
 	}
-	if d, e := DownloadDefaults("gemma-3-4b-it-Q4_K_M.gguf"); d != config.DriverLlamaCPP || e != DefaultLlamaEndpoint {
+	if d, e := DownloadDefaults("gemma-3-4b-it-Q4_K_M.gguf"); d != config.DriverLlamaCPP || e != "text" {
 		t.Fatalf("gguf defaults = %q/%q", d, e)
 	}
 }

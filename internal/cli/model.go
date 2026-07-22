@@ -21,7 +21,7 @@ func RunModel(args []string) int {
 	}
 	fs := flag.NewFlagSet("model download", flag.ContinueOnError)
 	name := fs.String("name", "", "model name to register (default: derived from file name)")
-	endpoint := fs.String("endpoint", "", "endpoint id to register under (default: local for whisper models, local-llm for .gguf chat models)")
+	endpoint := fs.String("endpoint", "", "endpoint id to register under (default: speech for whisper models, text for .gguf chat models)")
 	force := fs.Bool("force", false, "overwrite an existing file and config entry")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
