@@ -8,15 +8,19 @@ func TestDispatchMicRemoved(t *testing.T) {
 	}
 }
 
-func TestDispatchSetupUnknownTopic(t *testing.T) {
+func TestDispatchSetupRejectsArgs(t *testing.T) {
+	// setup takes no arguments now — any arg is exit 2, before the TTY check.
+	if code := Dispatch("test", []string{"setup", "mic"}); code != 2 {
+		t.Fatalf("setup with an arg must exit 2, got %d", code)
+	}
 	if code := Dispatch("test", []string{"setup", "bogus"}); code != 2 {
-		t.Fatalf("unknown setup topic must exit 2, got %d", code)
+		t.Fatalf("setup with an arg must exit 2, got %d", code)
 	}
 }
 
 func TestDispatchSetupNonTTY(t *testing.T) {
-	// go test runs with a non-TTY stdin, so any valid topic must refuse.
-	if code := Dispatch("test", []string{"setup", "mic"}); code != 1 {
-		t.Fatalf("setup without a TTY must exit 1, got %d", code)
+	// Bare `setup` in a non-TTY (go test) must exit 1.
+	if code := Dispatch("test", []string{"setup"}); code != 1 {
+		t.Fatalf("bare setup without a TTY must exit 1, got %d", code)
 	}
 }

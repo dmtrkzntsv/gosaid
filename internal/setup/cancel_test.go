@@ -8,7 +8,6 @@ import (
 	"charm.land/huh/v2"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
-	"github.com/dmtrkzntsv/gosaid/internal/models"
 )
 
 // The three cancel helpers form a round trip: a form abort becomes the
@@ -52,7 +51,7 @@ func TestCancelHelpers(t *testing.T) {
 // returns errCancelStep before UpsertHotkey — so guard the shape of the
 // sentinels themselves: they must be impossible to confuse with real input.
 func TestPickSentinelsAreNotValidInput(t *testing.T) {
-	for _, s := range []string{pickAdd, pickBack, pickTypeOwn} {
+	for _, s := range []string{pickBack, pickTypeOwn} {
 		if s == "" || s[0] != 0 {
 			t.Errorf("sentinel %q must start with NUL so terminal input can't produce it", s)
 		}
@@ -82,19 +81,6 @@ func TestListHeightLeavesRoomForChrome(t *testing.T) {
 	// The cap must still be usable, not collapse back to a sliver.
 	if got := listHeight(200); got < 8 {
 		t.Errorf("listHeight(200) = %d, too small to browse", got)
-	}
-}
-
-// The model list mixes catalog names with the pickAdd/pickBack action rows in
-// one select, and a name that matched a catalog entry would make the action
-// unreachable (or worse, be treated as a model to download).
-func TestModelPickerActionsAreNotModelNames(t *testing.T) {
-	for _, sentinel := range []string{pickAdd, pickBack} {
-		for _, e := range models.Catalog {
-			if e.Name == sentinel {
-				t.Fatalf("catalog model %q collides with a picker action", e.Name)
-			}
-		}
 	}
 }
 

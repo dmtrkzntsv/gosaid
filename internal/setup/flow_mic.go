@@ -24,31 +24,27 @@ func micOptions() ([]huh.Option[string], error) {
 	return opts, nil
 }
 
-// runMicFlow selects the global default microphone.
-func runMicFlow(s *Session) error {
+// askMicrophone returns the chosen default input device name ("" = system
+// default). current pre-selects the existing value.
+func askMicrophone(current string) (string, error) {
 	opts, err := micOptions()
 	if err != nil {
-		return err
+		return "", err
 	}
-	choice := s.Cfg.Microphone
 	opts = append(opts, huh.NewOption("← Back", pickBack))
-	form := huh.NewForm(huh.NewGroup(
+	choice := current
+	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Microphone").
 			Description("Used by every hotkey unless the hotkey sets its own microphone.").
 			Options(opts...).
 			Height(listHeight(len(opts))).
 			Value(&choice),
-	))
-	if err := form.Run(); err != nil {
-		return cancelable(err)
+	)).Run(); err != nil {
+		return "", cancelable(err)
 	}
 	if choice == pickBack {
-		return errCancelStep
+		return "", errCancelStep
 	}
-	if choice != s.Cfg.Microphone {
-		SetDefaultMicrophone(s.Cfg, choice)
-		s.Dirty = true
-	}
-	return nil
+	return choice, nil
 }

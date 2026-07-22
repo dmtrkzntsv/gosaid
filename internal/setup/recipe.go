@@ -4,64 +4,48 @@ import (
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
 
-// Recipes are the four hotkey pipelines offered by the wizard, mirroring the
-// shipped example config.
-const (
-	RecipeTranscribe = "transcribe" // transcribe only
-	RecipeCleanup    = "cleanup"    // transcribe → enhance
-	RecipeTranslate  = "translate"  // transcribe → enhance → translate
-	RecipeCompose    = "compose"    // transcribe → compose
-)
-
-// HotkeyAnswers is everything the hotkey wizard collects. BuildHotkey turns
-// it into a config.Hotkey; AnswersFrom inverts that for the edit flow.
+// HotkeyAnswers is everything the wizard collects for one hotkey. The three
+// stage flags are independent — unlike the old recipe model, enabling
+// translate does not force enhance. One ChatRef backs every enabled stage.
 type HotkeyAnswers struct {
 	Combo         string
 	Mode          string // "hold" or "toggle"
-	Recipe        string
-	TranscribeRef string // "endpoint:model"
-	ChatRef       string // "endpoint:model"; empty for RecipeTranscribe
-	TargetLang    string // RecipeTranslate only
-	Instructions  string // RecipeCompose only
-	Microphone    string // per-hotkey override; usually empty
+	TranscribeRef string // "speech:model"
+	ChatRef       string // "text:model"; empty when no stage is enabled
+	Enhance       bool
+	Translate     bool
+	Compose       bool
+	TargetLang    string // Translate only
+	Instructions  string // Compose only
 }
 
-// RecipeOf classifies an existing hotkey. Compose wins over translate wins
-// over enhance (a hotkey with both translate and enhance is the translate
-// recipe — that's how the wizard builds them).
-func RecipeOf(hk config.Hotkey) string {
-	switch {
-	case hk.Compose.IsEnabled():
-		return RecipeCompose
-	case hk.Translate.IsEnabled():
-		return RecipeTranslate
-	case hk.Enhance.IsEnabled():
-		return RecipeCleanup
-	default:
-		return RecipeTranscribe
-	}
+// NeedsChatModel reports whether any stage that runs a chat model is enabled,
+// so the wizard knows whether to ask for one.
+func (a HotkeyAnswers) NeedsChatModel() bool {
+	return a.Enhance || a.Translate || a.Compose
 }
 
-// BuildHotkey materializes wizard answers into a hotkey.
+// BuildHotkey materializes wizard answers into a hotkey. Each enabled stage is
+// set independently and shares the single ChatRef.
 func BuildHotkey(a HotkeyAnswers) config.Hotkey {
 	hk := config.Hotkey{
 		Mode:       config.HotkeyMode(a.Mode),
-		Microphone: a.Microphone,
 		Transcribe: config.TranscribeStage{Model: a.TranscribeRef},
 	}
-	switch a.Recipe {
-	case RecipeCleanup:
+	if a.Enhance {
 		hk.Enhance = &config.EnhanceStage{Model: a.ChatRef}
-	case RecipeTranslate:
-		hk.Enhance = &config.EnhanceStage{Model: a.ChatRef}
+	}
+	if a.Translate {
 		hk.Translate = &config.TranslateStage{OutputLanguage: a.TargetLang, Model: a.ChatRef}
-	case RecipeCompose:
+	}
+	if a.Compose {
 		hk.Compose = &config.ComposeStage{Model: a.ChatRef, Instructions: a.Instructions}
 	}
 	return hk
 }
 
-// AnswersFrom pre-fills the wizard from an existing hotkey (edit flow).
+// AnswersFrom pre-fills the wizard from an existing hotkey (the edit path).
+// The chat ref is taken from whichever enabled stage has one — they share it.
 func AnswersFrom(combo string, hk config.Hotkey) HotkeyAnswers {
 	mode := hk.Mode
 	if mode == "" {
@@ -70,18 +54,23 @@ func AnswersFrom(combo string, hk config.Hotkey) HotkeyAnswers {
 	a := HotkeyAnswers{
 		Combo:         combo,
 		Mode:          string(mode),
-		Recipe:        RecipeOf(hk),
 		TranscribeRef: hk.Transcribe.Model,
-		Microphone:    hk.Microphone,
+		Enhance:       hk.Enhance.IsEnabled(),
+		Translate:     hk.Translate.IsEnabled(),
+		Compose:       hk.Compose.IsEnabled(),
 	}
-	switch a.Recipe {
-	case RecipeCleanup:
+	switch {
+	case a.Enhance:
 		a.ChatRef = hk.Enhance.Model
-	case RecipeTranslate:
+	case a.Translate:
 		a.ChatRef = hk.Translate.Model
-		a.TargetLang = hk.Translate.OutputLanguage
-	case RecipeCompose:
+	case a.Compose:
 		a.ChatRef = hk.Compose.Model
+	}
+	if a.Translate {
+		a.TargetLang = hk.Translate.OutputLanguage
+	}
+	if a.Compose {
 		a.Instructions = hk.Compose.Instructions
 	}
 	return a

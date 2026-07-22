@@ -4,34 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 
 	"charm.land/huh/v2"
 	"golang.org/x/term"
+
+	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
 
-const setupUsage = "usage: gosaid setup [hotkey|provider|model|mic]"
+// osRemove is a seam for tests; production uses os.Remove.
+var osRemove = os.Remove
 
-// Run is the `gosaid setup` entry point. An empty args runs the hub; a topic
-// arg jumps straight to that manager and then to save.
+const setupUsage = "usage: gosaid setup   (local setup wizard; edit config.json for cloud providers)"
+
+// Run is the `gosaid setup` entry point: a single local-only wizard. Any
+// argument is rejected — there are no sub-topics.
 func Run(args []string) int {
-	topic := ""
 	if len(args) > 0 {
-		topic = args[0]
-	}
-	var flow func(*Session) error
-	switch topic {
-	case "":
-		flow = runHub
-	case "hotkey":
-		flow = runHotkeyFlow
-	case "provider":
-		flow = runProviderFlow
-	case "model":
-		flow = runModelFlow
-	case "mic":
-		flow = runMicFlow
-	default:
-		fmt.Fprintf(os.Stderr, "unknown setup topic: %s\n%s\n", topic, setupUsage)
+		fmt.Fprintf(os.Stderr, "gosaid setup takes no arguments\n%s\n", setupUsage)
 		return 2
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
@@ -43,34 +33,161 @@ func Run(args []string) int {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	for {
-		// A top-level flow that ends on a backed-out step is the user leaving
-		// setup, not an error worth printing.
-		if err := uncancel(flow(s)); err != nil {
-			if abort, ferr := confirmDiscardOnAbort(s, err); abort {
-				if ferr != nil {
-					fmt.Fprintf(os.Stderr, "error: %v\n", ferr)
-					return 1
-				}
-				fmt.Println("Changes discarded.")
-				return 0
-			} else if !errors.Is(err, huh.ErrUserAborted) {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				if !s.Dirty || !confirmSaveAfterError() {
-					return 1
-				}
-				// fall through to finish() below to save what we have
-			}
+
+	prefill, err := chooseEntry(s)
+	if err != nil {
+		if errors.Is(err, errCancelStep) || errors.Is(err, huh.ErrUserAborted) {
+			return 0
 		}
-		if err := finish(s); err != nil {
-			fmt.Fprintf(os.Stderr, "config not saved: %v\n", err)
-			if topic == "" {
-				continue // hub: back to the menu to fix it
-			}
-			return 1
-		}
-		return 0
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
 	}
+
+	if err := uncancel(runWizard(s, prefill)); err != nil {
+		if abort, ferr := confirmDiscardOnAbort(s, err); abort {
+			if ferr != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", ferr)
+				return 1
+			}
+			fmt.Println("Changes discarded.")
+			return 0
+		} else if !errors.Is(err, huh.ErrUserAborted) {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			if !s.Dirty || !confirmSaveAfterError() {
+				return 1
+			}
+		}
+	}
+	if err := finish(s); err != nil {
+		fmt.Fprintf(os.Stderr, "config not saved: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// chooseEntry runs the fresh-vs-existing branch, returning the answers to
+// pre-fill the wizard with (nil = fresh). It may reset the config in place.
+func chooseEntry(s *Session) (*HotkeyAnswers, error) {
+	if len(s.Cfg.Hotkeys) == 0 {
+		return nil, nil // fresh
+	}
+	scratch := false
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("A config already exists. Start from scratch?").
+			Description("Yes clears it (including cloud providers). No lets you edit or add a hotkey.").
+			Value(&scratch),
+	)).Run(); err != nil {
+		return nil, cancelable(err)
+	}
+	if scratch {
+		ResetConfig(s.Cfg)
+		s.Dirty = true
+		return nil, nil
+	}
+
+	// "No" — pick a hotkey to edit, or add a new one.
+	combos := make([]string, 0, len(s.Cfg.Hotkeys))
+	for combo := range s.Cfg.Hotkeys {
+		combos = append(combos, combo)
+	}
+	sort.Strings(combos)
+	var opts []huh.Option[string]
+	for _, combo := range combos {
+		opts = append(opts, huh.NewOption(HotkeySummary(combo, s.Cfg.Hotkeys[combo]), combo))
+	}
+	const pickAddNew = "\x00add-new"
+	opts = append(opts, huh.NewOption("+ Add a new hotkey", pickAddNew))
+	choice := ""
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().Title("Which hotkey?").Options(opts...).
+			Height(listHeight(len(opts))).Value(&choice),
+	)).Run(); err != nil {
+		return nil, cancelable(err)
+	}
+	if choice == pickAddNew {
+		return nil, nil
+	}
+	a := AnswersFrom(choice, s.Cfg.Hotkeys[choice])
+	return &a, nil
+}
+
+// runWizard runs the eight steps. prefill != nil seeds them from an existing
+// hotkey (edit path); nil starts blank (mic from the current global setting).
+func runWizard(s *Session, prefill *HotkeyAnswers) error {
+	var a HotkeyAnswers
+	if prefill != nil {
+		a = *prefill
+	} else {
+		a.Mode = string(config.ModeHold)
+	}
+
+	// 1. Microphone (global).
+	mic, err := askMicrophone(s.Cfg.Microphone)
+	if err != nil {
+		return err
+	}
+	if mic != s.Cfg.Microphone {
+		s.Cfg.Microphone = mic
+		s.Dirty = true
+	}
+
+	// 2. Transcription model → a.TranscribeRef. installWhisperModel registers
+	// on s.Cfg in place, so the just-installed model is visible below.
+	ref, err := installWhisperModel(s)
+	if err != nil {
+		return err
+	}
+	a.TranscribeRef = ref
+
+	// 3. Shortcut.
+	combo, err := askCombo(s, a.Combo)
+	if err != nil {
+		return err
+	}
+	a.Combo = combo
+
+	// 4. Mode.
+	mode, err := askMode(a.Mode)
+	if err != nil {
+		return err
+	}
+	a.Mode = mode
+
+	// 5-7. Stage toggles.
+	if a.Enhance, err = askYesNo("Enable enhance (clean up speech)?", "", a.Enhance); err != nil {
+		return err
+	}
+	if a.Translate, err = askYesNo("Enable translate?", "", a.Translate); err != nil {
+		return err
+	}
+	if a.Translate {
+		if a.TargetLang, err = askTargetLanguage(a.TargetLang); err != nil {
+			return err
+		}
+	}
+	if a.Compose, err = askYesNo("Enable compose (rewrite to order)?", "", a.Compose); err != nil {
+		return err
+	}
+	if a.Compose {
+		if a.Instructions, err = askInstructions(a.Instructions); err != nil {
+			return err
+		}
+	}
+
+	// 8. Chat model — only when a stage needs it.
+	if a.NeedsChatModel() {
+		chatRef, err := installChatModel(s)
+		if err != nil {
+			return err
+		}
+		a.ChatRef = chatRef
+	}
+
+	UpsertHotkey(s.Cfg, a.Combo, BuildHotkey(a))
+	s.Dirty = true
+	fmt.Printf("Hotkey ready: %s\n", HotkeySummary(a.Combo, s.Cfg.Hotkeys[a.Combo]))
+	return nil
 }
 
 // errCancelStep means "the user backed out of this step" (Esc/Ctrl+C inside a

@@ -6,64 +6,83 @@ import (
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
 
-func TestRecipeOf(t *testing.T) {
-	cases := []struct {
-		name string
-		hk   config.Hotkey
-		want string
-	}{
-		{"plain", config.Hotkey{}, RecipeTranscribe},
-		{"cleanup", config.Hotkey{Enhance: &config.EnhanceStage{Model: "x:y"}}, RecipeCleanup},
-		{"translate wins over enhance", config.Hotkey{
-			Enhance:   &config.EnhanceStage{Model: "x:y"},
-			Translate: &config.TranslateStage{OutputLanguage: "en", Model: "x:y"},
-		}, RecipeTranslate},
-		{"compose", config.Hotkey{Compose: &config.ComposeStage{Model: "x:y"}}, RecipeCompose},
+func TestNeedsChatModel(t *testing.T) {
+	if (HotkeyAnswers{}).NeedsChatModel() {
+		t.Error("transcribe-only needs no chat model")
 	}
-	for _, c := range cases {
-		if got := RecipeOf(c.hk); got != c.want {
-			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
-		}
+	if !(HotkeyAnswers{Enhance: true}).NeedsChatModel() {
+		t.Error("enhance needs a chat model")
+	}
+	if !(HotkeyAnswers{Translate: true}).NeedsChatModel() {
+		t.Error("translate needs a chat model")
+	}
+	if !(HotkeyAnswers{Compose: true}).NeedsChatModel() {
+		t.Error("compose needs a chat model")
 	}
 }
 
-func TestBuildHotkeyRoundTrip(t *testing.T) {
+func TestBuildHotkeyStages(t *testing.T) {
 	a := HotkeyAnswers{
-		Combo: "option+right", Mode: "hold", Recipe: RecipeTranslate,
-		TranscribeRef: "openai:whisper-1", ChatRef: "openai:gpt-5.4-nano",
-		TargetLang: "en",
+		Combo: "option+space", Mode: "hold",
+		TranscribeRef: "speech:turbo", ChatRef: "text:gemma-4-e2b",
+		Enhance: true, Translate: true, TargetLang: "en",
 	}
 	hk := BuildHotkey(a)
-	if hk.Transcribe.Model != "openai:whisper-1" {
+	if hk.Transcribe.Model != "speech:turbo" {
 		t.Errorf("transcribe = %q", hk.Transcribe.Model)
 	}
-	if !hk.Enhance.IsEnabled() || hk.Enhance.Model != "openai:gpt-5.4-nano" {
-		t.Errorf("translate recipe must include enhance (matches example config): %+v", hk.Enhance)
+	if !hk.Enhance.IsEnabled() || hk.Enhance.Model != "text:gemma-4-e2b" {
+		t.Errorf("enhance = %+v", hk.Enhance)
 	}
-	if !hk.Translate.IsEnabled() || hk.Translate.OutputLanguage != "en" {
-		t.Errorf("translate stage: %+v", hk.Translate)
+	if !hk.Translate.IsEnabled() || hk.Translate.OutputLanguage != "en" || hk.Translate.Model != "text:gemma-4-e2b" {
+		t.Errorf("translate = %+v", hk.Translate)
 	}
 	if hk.Compose != nil {
-		t.Error("compose must be absent")
-	}
-
-	back := AnswersFrom("option+right", hk)
-	if back.Recipe != RecipeTranslate || back.ChatRef != "openai:gpt-5.4-nano" ||
-		back.TargetLang != "en" || back.TranscribeRef != "openai:whisper-1" {
-		t.Errorf("AnswersFrom lost data: %+v", back)
+		t.Error("compose must be absent when not enabled")
 	}
 }
 
-func TestBuildHotkeyCompose(t *testing.T) {
+func TestBuildHotkeyIndependentStages(t *testing.T) {
+	// Compose without enhance — proves stages are independent, not a recipe
+	// ladder (the old model forced enhance whenever translate was on).
 	hk := BuildHotkey(HotkeyAnswers{
-		Combo: "option+up", Mode: "hold", Recipe: RecipeCompose,
-		TranscribeRef: "openai:whisper-1", ChatRef: "openai:gpt-5.4-nano",
-		Instructions: "Formal register.",
+		Combo: "option+up", Mode: "toggle",
+		TranscribeRef: "speech:small", ChatRef: "text:qwen3.5-0.8b",
+		Compose: true, Instructions: "Formal register.",
 	})
-	if !hk.Compose.IsEnabled() || hk.Compose.Instructions != "Formal register." {
-		t.Errorf("compose: %+v", hk.Compose)
-	}
 	if hk.Enhance != nil || hk.Translate != nil {
-		t.Error("compose recipe must not add enhance/translate")
+		t.Error("only compose should be set")
+	}
+	if !hk.Compose.IsEnabled() || hk.Compose.Instructions != "Formal register." {
+		t.Errorf("compose = %+v", hk.Compose)
+	}
+	if hk.Mode != config.ModeToggle {
+		t.Errorf("mode = %q", hk.Mode)
+	}
+}
+
+func TestAnswersFromRoundTrip(t *testing.T) {
+	orig := config.Hotkey{
+		Mode:       config.ModeHold,
+		Transcribe: config.TranscribeStage{Model: "speech:turbo"},
+		Enhance:    &config.EnhanceStage{Model: "text:gemma-4-e2b"},
+		Compose:    &config.ComposeStage{Model: "text:gemma-4-e2b", Instructions: "x"},
+	}
+	a := AnswersFrom("option+right", orig)
+	if a.Combo != "option+right" || a.Mode != "hold" {
+		t.Errorf("combo/mode = %q/%q", a.Combo, a.Mode)
+	}
+	if !a.Enhance || a.Translate || !a.Compose {
+		t.Errorf("stage flags = %v/%v/%v", a.Enhance, a.Translate, a.Compose)
+	}
+	if a.ChatRef != "text:gemma-4-e2b" || a.Instructions != "x" {
+		t.Errorf("chat/instructions = %q/%q", a.ChatRef, a.Instructions)
+	}
+	if a.TranscribeRef != "speech:turbo" {
+		t.Errorf("transcribe = %q", a.TranscribeRef)
+	}
+	// An empty-mode hotkey round-trips as hold.
+	if got := AnswersFrom("x", config.Hotkey{}).Mode; got != "hold" {
+		t.Errorf("default mode = %q, want hold", got)
 	}
 }

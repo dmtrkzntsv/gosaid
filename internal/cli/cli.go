@@ -46,12 +46,11 @@ func Usage() {
 
 usage:
   gosaid           run the daemon
-  gosaid setup     interactive configuration (hotkeys, providers, models, mic)
-  gosaid setup hotkey|provider|model|mic
-                   jump straight to one setup topic
+  gosaid setup     local setup wizard — transcription, a hotkey, optional local
+                   chat stages. Edit config.json directly for cloud providers.
   gosaid config    open the config file in $EDITOR
   gosaid model download <hf-repo> <file>
-                   download a GGML model from Hugging Face and register it
+                   download a model from Hugging Face and register it
   gosaid version   print version
   gosaid help      print this message`)
 }
