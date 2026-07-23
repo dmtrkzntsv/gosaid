@@ -13,3 +13,6 @@ var modifierMap = map[string]xh.Modifier{
 }
 
 var keyMap = commonKeys()
+
+// remapHint names where to remap a locking key on this platform.
+const remapHint = "e.g. `setxkbmap -option caps:ctrl_modifier`, or your desktop's keyboard settings"

@@ -13,7 +13,7 @@ import (
 // endpointInfo carries what stage validation needs to know about an endpoint.
 type endpointInfo struct {
 	driver string
-	models map[string]string // whisper_cpp only
+	models map[string]string // whisper_cpp / llama_cpp only
 }
 
 // Validate checks every rule. Combo parsing is deferred to the hotkey package
@@ -30,10 +30,10 @@ func Validate(cfg *Config) error {
 	endpoints := map[string]endpointInfo{}
 	for di, d := range cfg.Drivers {
 		switch d.Driver {
-		case DriverOpenAICompatible, DriverWhisperCPP:
+		case DriverOpenAICompatible, DriverWhisperCPP, DriverLlamaCPP:
 		default:
-			return fmt.Errorf("drivers[%d]: unknown driver type %q (expected %q or %q)",
-				di, d.Driver, DriverOpenAICompatible, DriverWhisperCPP)
+			return fmt.Errorf("drivers[%d]: unknown driver type %q (expected %q, %q, or %q)",
+				di, d.Driver, DriverOpenAICompatible, DriverWhisperCPP, DriverLlamaCPP)
 		}
 		if len(d.Endpoints) == 0 {
 			return fmt.Errorf("drivers[%d]: at least one endpoint is required", di)
@@ -54,11 +54,11 @@ func Validate(cfg *Config) error {
 					return fmt.Errorf("endpoint %q: api_key is required", e.ID)
 				}
 				if e.Config.UnloadAfterSeconds != 0 {
-					return fmt.Errorf("endpoint %q: unload_after_seconds only applies to whisper_cpp endpoints", e.ID)
+					return fmt.Errorf("endpoint %q: unload_after_seconds only applies to whisper_cpp and llama_cpp endpoints", e.ID)
 				}
-			case DriverWhisperCPP:
+			case DriverWhisperCPP, DriverLlamaCPP:
 				if len(e.Config.Models) == 0 {
-					return fmt.Errorf("endpoint %q: a non-empty models map is required for whisper_cpp", e.ID)
+					return fmt.Errorf("endpoint %q: a non-empty models map is required for %s", e.ID, d.Driver)
 				}
 				if e.Config.UnloadAfterSeconds < 0 {
 					return fmt.Errorf("endpoint %q: unload_after_seconds must not be negative", e.ID)
@@ -162,10 +162,17 @@ func checkModelRef(field, ref string, endpoints map[string]endpointInfo, chatSta
 	if !ok {
 		return fmt.Errorf("%s: unknown endpoint %q", field, m.Endpoint)
 	}
-	if info.driver == DriverWhisperCPP {
+	switch info.driver {
+	case DriverWhisperCPP:
 		if chatStage {
 			return fmt.Errorf("%s: endpoint %q is whisper_cpp, which supports transcription only", field, m.Endpoint)
 		}
+	case DriverLlamaCPP:
+		if !chatStage {
+			return fmt.Errorf("%s: endpoint %q is llama_cpp, which supports chat stages only", field, m.Endpoint)
+		}
+	}
+	if info.driver == DriverWhisperCPP || info.driver == DriverLlamaCPP {
 		if _, ok := info.models[m.Model]; !ok {
 			return fmt.Errorf("%s: endpoint %q has no model named %q", field, m.Endpoint, m.Model)
 		}

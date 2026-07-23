@@ -14,3 +14,6 @@ var modifierMap = map[string]xh.Modifier{
 }
 
 var keyMap = commonKeys()
+
+// remapHint names where to remap a locking key on this platform.
+const remapHint = "e.g. PowerToys Keyboard Manager, or a Scancode Map registry entry"
