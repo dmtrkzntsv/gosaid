@@ -96,15 +96,31 @@ func askMode(current string) (string, error) {
 	return choice, nil
 }
 
-// askYesNo asks a stage enable question. Returns the bool; Esc backs out.
+// askYesNo asks a stage enable question as a vertical Yes/No list (rather than
+// a confirm's side-by-side buttons), matching the other wizard steps. Esc or
+// "← Back" backs out.
 func askYesNo(title, desc string, current bool) (bool, error) {
-	v := current
-	if err := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().Title(title).Description(desc).Value(&v),
-	)).Run(); err != nil {
+	choice := "no"
+	if current {
+		choice = "yes"
+	}
+	opts := []huh.Option[string]{
+		huh.NewOption("Yes", "yes"),
+		huh.NewOption("No", "no"),
+		huh.NewOption("← Back", pickBack),
+	}
+	sel := huh.NewSelect[string]().Title(title).Options(opts...).
+		Height(listHeight(len(opts))).Value(&choice)
+	if desc != "" {
+		sel = sel.Description(desc)
+	}
+	if err := huh.NewForm(huh.NewGroup(sel)).Run(); err != nil {
 		return false, cancelable(err)
 	}
-	return v, nil
+	if choice == pickBack {
+		return false, errCancelStep
+	}
+	return choice == "yes", nil
 }
 
 // askTargetLanguage picks the translate output language.

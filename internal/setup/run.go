@@ -73,16 +73,22 @@ func chooseEntry(s *Session) (*HotkeyAnswers, error) {
 		s.Dirty = true
 		return nil, nil // fresh
 	}
-	scratch := false
+	scratch := "no"
+	scratchOpts := []huh.Option[string]{
+		huh.NewOption("Yes", "yes"),
+		huh.NewOption("No", "no"),
+	}
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
+		huh.NewSelect[string]().
 			Title("A config already exists. Start from scratch?").
 			Description("Yes clears it (including cloud providers). No lets you edit or add a hotkey.").
+			Options(scratchOpts...).
+			Height(listHeight(len(scratchOpts))).
 			Value(&scratch),
 	)).Run(); err != nil {
 		return nil, cancelable(err)
 	}
-	if scratch {
+	if scratch == "yes" {
 		ResetConfig(s.Cfg)
 		s.Dirty = true
 		return nil, nil
