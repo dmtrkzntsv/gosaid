@@ -60,7 +60,7 @@ gosaid config
 Custom vocabulary — names, products, jargon that transcription keeps getting wrong — goes in a personal dictionary that hints both Whisper and the text stages:
 
 ```bash
-gosaid dict Kubernetes          # add a word (--delete to remove, no args to list)
+gosaid vocab Kubernetes          # add a word (--delete to remove, no args to list)
 ```
 
 See **[docs/configuration.md](docs/configuration.md)** for the full reference.

@@ -158,10 +158,10 @@ Mixing local and hosted stages within one hotkey is fine, and different hotkeys 
 Names, product names, and jargon that transcription keeps mangling can be added to a personal dictionary. The words are fed to Whisper as a transcription hint and injected into every text stage's prompt (`enhance`, `compose`, `translate`, and selection rewrites), so custom terms are spelled the way you want.
 
 ```bash
-gosaid dict Kubernetes        # add a word
-gosaid dict "New York"        # multi-word terms are fine (quote them)
-gosaid dict Kubernetes --delete   # remove a word
-gosaid dict                   # list the current words
+gosaid vocab Kubernetes        # add a word
+gosaid vocab "New York"        # multi-word terms are fine (quote them)
+gosaid vocab Kubernetes --delete   # remove a word
+gosaid vocab                   # list the current words
 ```
 
 Words are stored in `vocabulary.json` next to `config.json` — a simple list you can also edit by hand:
@@ -178,7 +178,7 @@ Words are stored in `vocabulary.json` next to `config.json` — a simple list yo
 | Linux | `~/.config/gosaid/vocabulary.json` |
 | Windows | `%AppData%\gosaid\vocabulary.json` |
 
-Matching is case-insensitive for add/remove, so a term is only stored once. Restart GoSaid after editing the file by hand — like `config.json`, the vocabulary is read at startup. (`gosaid dict` writes the file directly; the change still takes effect on the daemon's next start.)
+Matching is case-insensitive for add/remove, so a term is only stored once. Restart GoSaid after editing the file by hand — like `config.json`, the vocabulary is read at startup. (`gosaid vocab` writes the file directly; the change still takes effect on the daemon's next start.)
 
 ## Memory and performance
 

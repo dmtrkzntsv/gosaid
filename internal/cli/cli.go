@@ -26,8 +26,8 @@ func Dispatch(version string, args []string) int {
 		return 0
 	case "model":
 		return RunModel(args[1:])
-	case "dict":
-		return RunDict(args[1:])
+	case "vocab":
+		return RunVocab(args[1:])
 	case "setup":
 		return setup.Run(args[1:])
 	case "version", "-v", "--version":
@@ -53,9 +53,9 @@ usage:
   gosaid config    open the config file in $EDITOR
   gosaid model download <hf-repo> <file>
                    download a model from Hugging Face and register it
-  gosaid dict <word> [--delete]
-                   add or remove a personal-dictionary word (custom
-                   vocabulary hinted to transcription and the text stages);
+  gosaid vocab <word> [--delete]
+                   add or remove a custom-vocabulary word (hinted to
+                   transcription and the text stages so it's spelled right);
                    run with no word to list
   gosaid version   print version
   gosaid help      print this message`)
