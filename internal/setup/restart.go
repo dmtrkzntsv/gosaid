@@ -60,13 +60,21 @@ func offerRestart() {
 		fmt.Println("The daemon is not running. Start it with:\n  " + startHint())
 		return
 	}
-	restart := true
+	// Vertical Yes/No list, matching the wizard steps. Anything but an explicit
+	// "yes" (No, Esc, error) declines and prints the manual hint.
+	restart := "yes"
+	opts := []huh.Option[string]{
+		huh.NewOption("Yes", "yes"),
+		huh.NewOption("No", "no"),
+	}
 	err := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
+		huh.NewSelect[string]().
 			Title("Restart the daemon to apply changes?").
+			Options(opts...).
+			Height(listHeight(len(opts))).
 			Value(&restart),
 	)).Run()
-	if err != nil || !restart {
+	if err != nil || restart != "yes" {
 		fmt.Println("Restart the daemon later to apply changes:\n  " + restartHint())
 		return
 	}
