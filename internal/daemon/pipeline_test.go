@@ -501,6 +501,38 @@ func TestComposeWithSelectionUsesTransformPrompt(t *testing.T) {
 	}
 }
 
+// Reasoning models wrap their chain of thought in <think>…</think>; the
+// transform stage must inject only the answer, like every other LLM stage.
+func TestTransformStripsReasoning(t *testing.T) {
+	drv := &mockDriver{
+		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "make it formal", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, _, _ string) (string, error) {
+			return "<think>\nThe user wants a formal register.\n</think>\n\nDear Alice,", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := baseConfig()
+	cfg.Hotkeys = map[string]config.Hotkey{
+		"ctrl+alt+space": {
+			Mode:       config.ModeHold,
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:x"},
+		},
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{Text: "hey buddy", OK: true}
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if sink.String() != "Dear Alice," {
+		t.Fatalf("injected %q, want the answer with the reasoning block stripped", sink.String())
+	}
+}
+
 func TestComposeWithoutSelectionFallsBack(t *testing.T) {
 	var gotSystem string
 	drv := &mockDriver{

@@ -260,6 +260,7 @@ func (p *Pipeline) transform(ctx context.Context, instruction, selection string,
 	if err != nil {
 		return "", err
 	}
+	out = stripReasoning(out)
 	p.Log.Debug("transform", "text", out)
 	return out, nil
 }
