@@ -43,7 +43,14 @@ func Run(args []string) int {
 		return 1
 	}
 
-	if err := uncancel(runWizard(s, prefill)); err != nil {
+	// Microphone is a global setting, so ask it once here — not inside
+	// runWizard, which runs per hotkey. Run the mic step, then the wizard;
+	// a backed-out or failed step short-circuits to the shared handling below.
+	err = uncancel(askGlobalMicrophone(s))
+	if err == nil {
+		err = uncancel(runWizard(s, prefill))
+	}
+	if err != nil {
 		if abort, ferr := confirmDiscardOnAbort(s, err); abort {
 			if ferr != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", ferr)
@@ -120,17 +127,9 @@ func chooseEntry(s *Session) (*HotkeyAnswers, error) {
 	return &a, nil
 }
 
-// runWizard runs the eight steps. prefill != nil seeds them from an existing
-// hotkey (edit path); nil starts blank (mic from the current global setting).
-func runWizard(s *Session, prefill *HotkeyAnswers) error {
-	var a HotkeyAnswers
-	if prefill != nil {
-		a = *prefill
-	} else {
-		a.Mode = string(config.ModeHold)
-	}
-
-	// 1. Microphone (global).
+// askGlobalMicrophone sets the global default input device. It is a
+// session-level setting, asked once before the per-hotkey wizard.
+func askGlobalMicrophone(s *Session) error {
 	mic, err := askMicrophone(s.Cfg.Microphone)
 	if err != nil {
 		return err
@@ -139,8 +138,21 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 		s.Cfg.Microphone = mic
 		s.Dirty = true
 	}
+	return nil
+}
 
-	// 2. Transcription model → a.TranscribeRef. installWhisperModel registers
+// runWizard runs the per-hotkey steps. prefill != nil seeds them from an
+// existing hotkey (edit path); nil starts blank. The microphone is handled
+// once before this by askGlobalMicrophone, not here.
+func runWizard(s *Session, prefill *HotkeyAnswers) error {
+	var a HotkeyAnswers
+	if prefill != nil {
+		a = *prefill
+	} else {
+		a.Mode = string(config.ModeHold)
+	}
+
+	// 1. Transcription model → a.TranscribeRef. installWhisperModel registers
 	// on s.Cfg in place, so the just-installed model is visible below.
 	ref, err := installWhisperModel(s)
 	if err != nil {
@@ -148,7 +160,7 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 	}
 	a.TranscribeRef = ref
 
-	// 3. Shortcut. When editing an existing hotkey the combo is fixed — its
+	// 2. Shortcut. When editing an existing hotkey the combo is fixed — its
 	// identity — so don't re-ask; only prompt when adding a new binding.
 	if prefill == nil {
 		combo, err := askCombo(s)
@@ -160,14 +172,14 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 		fmt.Printf("Editing %s\n", a.Combo)
 	}
 
-	// 4. Mode.
+	// 3. Mode.
 	mode, err := askMode(a.Mode)
 	if err != nil {
 		return err
 	}
 	a.Mode = mode
 
-	// 5-7. Stage toggles.
+	// 4-6. Stage toggles.
 	if a.Enhance, err = askYesNo("Enable enhance (clean up speech)?", "", a.Enhance); err != nil {
 		return err
 	}
@@ -188,7 +200,7 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 		}
 	}
 
-	// 8. Chat model — only when a stage needs it.
+	// 7. Chat model — only when a stage needs it.
 	if a.NeedsChatModel() {
 		chatRef, err := installChatModel(s)
 		if err != nil {
