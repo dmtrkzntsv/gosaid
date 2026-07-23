@@ -274,15 +274,21 @@ func uncancel(err error) error {
 // non-abort flow error. A second error or abort while asking counts as a
 // decline (returns false) so the caller discards.
 func confirmSaveAfterError() bool {
-	save := true
+	save := "yes"
+	opts := []huh.Option[string]{
+		huh.NewOption("Yes", "yes"),
+		huh.NewOption("No", "no"),
+	}
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
+		huh.NewSelect[string]().
 			Title("Save the changes made so far?").
+			Options(opts...).
+			Height(listHeight(len(opts))).
 			Value(&save),
 	)).Run(); err != nil {
 		return false
 	}
-	return save
+	return save == "yes"
 }
 
 // confirmDiscardOnAbort handles Ctrl+C/Esc out of a form. With no unsaved
@@ -295,17 +301,24 @@ func confirmDiscardOnAbort(s *Session, err error) (bool, error) {
 	if !s.Dirty {
 		return true, nil
 	}
-	discard := false
+	// Vertical list matching the wizard steps. First option discards, second
+	// keeps the work for saving.
+	choice := "save"
+	opts := []huh.Option[string]{
+		huh.NewOption("Discard", "discard"),
+		huh.NewOption("Save them", "save"),
+	}
 	cerr := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
+		huh.NewSelect[string]().
 			Title("Discard unsaved changes?").
-			Affirmative("Discard").Negative("Save them").
-			Value(&discard),
+			Options(opts...).
+			Height(listHeight(len(opts))).
+			Value(&choice),
 	)).Run()
 	if cerr != nil {
 		return true, nil // second abort: discard
 	}
-	return discard, nil
+	return choice == "discard", nil
 }
 
 // finish writes the config when anything changed and tells the user how to
