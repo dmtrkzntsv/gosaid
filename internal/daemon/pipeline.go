@@ -163,6 +163,7 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 	if err != nil {
 		return "", err
 	}
+	out = stripReasoning(out)
 	p.Log.Debug("translation", "text", out, "source", detectedCode, "target", stage.OutputLanguage)
 	return out, nil
 }
@@ -183,6 +184,7 @@ func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.Enha
 	if err != nil {
 		return "", err
 	}
+	out = stripReasoning(out)
 	p.Log.Debug("enhancement", "text", out)
 	return out, nil
 }
@@ -206,6 +208,7 @@ func (p *Pipeline) compose(ctx context.Context, input string, stage *config.Comp
 	if err != nil {
 		return "", err
 	}
+	out = stripReasoning(out)
 	p.Log.Debug("compose", "text", out)
 	return out, nil
 }
