@@ -1,215 +1,61 @@
 # GoSaid
 
-**Dictate in your native language, get polished text in another one.** Press a hotkey, speak, and GoSaid transcribes your speech, cleans it up, translates it — and types the result straight into the app under your cursor.
-
-- **Local or cloud** — run transcription and chat stages fully on-device via embedded whisper.cpp and llama.cpp (no API key, no network), or use any OpenAI-compatible API (OpenAI, Groq, OpenRouter, DeepSeek, Together, …).
-- **Lightweight** — a single static binary. No UI, no bundled runtimes, just one small background process.
+**Dictate in your native language, get polished text in another one.** Press a hotkey, speak, and GoSaid types the result straight into the app under your cursor — cleaned up, translated into another language, or written for you from a spoken brief — describe what you need and get the finished text. It's a headless background process with no UI, and it runs entirely on your machine for free: no API key, no account, nothing you say leaving your laptop. Hosted models work too, if you'd rather.
 
 > **Platform status:** actively used and tested on macOS. Linux and Windows builds are produced but **not yet tested** — expect rough edges and please report issues.
 
-## Installation
+## Install
 
 ### macOS & Linux (Homebrew)
 
-```
+```bash
 brew install dmtrkzntsv/tap/gosaid
-gosaid setup                   # guided setup: transcription model, hotkey, optional chat stages
-brew services start gosaid     # runs in background, auto-starts at login
 ```
 
-Upgrade with `brew upgrade gosaid`, stop with `brew services stop gosaid`.
+Then run the wizard and start it in the background:
 
-- **macOS:** grant **Accessibility** (prompted on first hotkey press) and **Microphone** (first recording).
-- **Linux:** install a keystroke-injection tool: `wtype` (Wayland), `xdotool` (X11), or `ydotool` (either, needs its daemon running).
+```bash
+gosaid setup && brew services start gosaid
+```
+
+- **macOS:** grant **Accessibility** (prompted on first hotkey press) and **Microphone** (first recording). The binary is signed and notarized.
+- **Linux:** install a keystroke-injection tool — `wtype` (Wayland), `xdotool` (X11), or `ydotool` (either, needs its daemon running).
 
 ### Windows
 
-1. Download `gosaid-<version>-windows-amd64.zip` from [releases](https://github.com/dmtrkzntsv/gosaid/releases/latest), extract, and put `gosaid.exe` on your `PATH`.
-2. SmartScreen will warn on first run (the binary is unsigned in v1) — click **More info → Run anyway**.
+1. Download `gosaid-<version>-windows-amd64.zip` from the [releases page](https://github.com/dmtrkzntsv/gosaid/releases/latest), extract it, and put `gosaid.exe` on your `PATH`.
+2. SmartScreen warns on first run (the binary is unsigned in v1) — click **More info → Run anyway**.
 3. Run `gosaid setup`, then `gosaid`.
 
-> Prefer a raw binary or building from source? See [Manual installation](#manual-installation).
+## Quick start — `gosaid setup`
 
-## Configuration
-
-The easiest way to configure GoSaid is the interactive setup:
-
-```
-gosaid setup             # guided wizard: transcription model, hotkey, optional chat stages
+```bash
+gosaid setup
 ```
 
-On a fresh install `gosaid setup` walks you through picking a microphone, a transcription model, a hotkey, and optional local chat stages (enhance, translate, compose). For cloud providers, edit `config.json` directly. Prefer raw JSON?
-`gosaid config` still opens the file in `$EDITOR`.
+### Stages
 
-Config is a single JSON file — run `gosaid config` to open it in `$EDITOR`. A complete annotated sample lives at [`internal/config/config.example.json`](internal/config/config.example.json).
+The wizard asks which stages a hotkey should run. Each is an independent yes/no, and they always run in the order below. Different hotkeys can enable different stages — that's how you end up with one shortcut for quick notes and another that writes your emails.
 
-| Platform | Path |
-|---|---|
-| macOS | `~/Library/Application Support/gosaid/config.json` |
-| Linux | `~/.config/gosaid/config.json` |
-| Windows | `%AppData%\gosaid\config.json` |
+**`transcribe`** — speech to text. Always on; it's the only required stage. A hotkey with nothing else enabled gives you the raw transcript, which is fast and accurate but reads like speech: no capitals, stray "um"s, and whatever the recognizer made of your accent.
 
-A minimal working config — one provider, one push-to-talk hotkey:
+**`enhance`** — fixes exactly that. It removes filler words, false starts, and repeated words, keeps only the final version when you correct yourself mid-sentence, and adds the capitalization and punctuation that speech doesn't carry. It deliberately doesn't touch your phrasing, your language, or the English technical terms you drop into another language — the point is text you'd have typed, not text someone else wrote. Enable it on any hotkey you dictate real sentences into.
 
-```json
-{
-  "drivers": [
-    {
-      "driver": "openai_compatible",
-      "endpoints": [
-        {
-          "id": "openai",
-          "config": {
-            "api_base": "https://api.openai.com/v1",
-            "api_key": "sk-..."
-          }
-        }
-      ]
-    }
-  ],
-  "hotkeys": {
-    "ctrl+alt+space": {
-      "mode": "hold",
-      "transcribe": { "model": "openai:whisper-1" }
-    }
-  }
-}
-```
+**`compose`** — for when you don't want to dictate the text at all, just say what it should be. *"A short Slack reply saying I'll miss standup"*, *"a commit message for a fix to the retry logic"*, *"three bullet points summarising this idea"* — what you speak is the brief, and what gets typed is the finished thing. Register and audience are inferred from how you phrase the request, and you can pin a house style per hotkey (*"always write in a formal register"*) so you don't have to repeat it every time.
 
-Any OpenAI-compatible API works — swap `api_base`/`api_key` for Groq, OpenRouter, DeepSeek, etc. Add more endpoints to mix providers; models are referenced as `<endpoint_id>:<model>`.
+**`translate`** — renders the result in a language you pick when you set the hotkey up. This is the stage that lets you think and speak in your native language and have polished text in another one appear in the app you're typing into, which is the thing GoSaid is really for. It translates closely rather than rewriting, so an enhanced transcript stays yours.
 
-### Local models (no cloud)
+The one choice worth thinking about is `enhance` vs `compose`: enhance keeps what you said and cleans it up, compose throws away your wording and writes something new from it. Most hotkeys want enhance (plus translate); a "write this for me" hotkey wants compose.
 
-Transcription can run fully locally via embedded whisper.cpp — no API key, no network. Download a GGML model and it's registered in your config automatically as the `speech` endpoint:
+## Manual configuration
 
-```
-gosaid model download ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin --name turbo
-```
+The wizard is local-only and does one hotkey at a time. Everything else — cloud providers, several hotkeys with different models, per-hotkey microphones, mixed local/hosted pipelines, memory tuning — is a direct edit:
 
-Then use it in a hotkey: `"transcribe": { "model": "speech:turbo" }`.
-
-| Model | Size | When to use |
-|---|---|---|
-| `ggml-large-v3-turbo-q5_0.bin` | ~550 MB | Best accuracy/latency balance — the default choice, especially for non-English speech |
-| `ggml-small.bin` | ~460 MB | Balanced multilingual fallback, fast on plain CPU |
-| `ggml-base.bin` | ~140 MB | Near-instant; fine for quick English notes |
-
-On macOS inference runs on the GPU (Metal).
-
-Loaded models stay resident in memory for instant dictation (the model's full weight size, e.g. ~1.7 GB for un-quantized `large-v3-turbo`). To trade a few seconds of reload latency for that memory, set `unload_after_seconds` in the endpoint's config — an idle model is freed after that long and reloads on the next dictation:
-
-```json
-"config": {
-  "models": { "turbo": "/path/to/models/ggml-large-v3-turbo-q5_0.bin" },
-  "unload_after_seconds": 300
-}
-```
-
-#### Local chat models (enhance / compose / translate)
-
-The text stages can also run fully locally via embedded llama.cpp. Download
-any instruct-tuned GGUF model — it registers as the `text` endpoint:
-
-```
-gosaid model download ggml-org/gemma-3-4b-it-GGUF gemma-3-4b-it-Q4_K_M.gguf --name gemma
-```
-
-Then use it in a hotkey's chat stages:
-
-```json
-"cmd+shift+r": {
-  "mode": "hold",
-  "transcribe": { "model": "speech:turbo" },
-  "enhance":    { "model": "text:gemma" },
-  "translate":  { "model": "text:gemma", "output_language": "en" }
-}
-```
-
-| Model | Size | When to use |
-|---|---|---|
-| `gemma-3-4b-it-Q4_K_M.gguf` (repo `ggml-org/gemma-3-4b-it-GGUF`) | ~2.5 GB | Recommended default — strong cleanup and translation quality |
-| `Qwen3-1.7B-Q4_K_M.gguf` (repo `ggml-org/Qwen3-1.7B-GGUF`) | ~1.1 GB | Budget option: less RAM, faster loads, weaker compose quality |
-
-Chat models follow the same residency rules as whisper models: loaded
-lazily on first use, kept in memory for instant dictation, and — with
-`unload_after_seconds` set on the endpoint — freed after idling. Budget
-RAM for every model that can be resident at once (e.g. whisper turbo
-~550 MB + a 4B chat model ~2.5 GB); mixing a small enhance model with a
-larger compose model is fine, but each loads separately.
-
-Models must ship an embedded chat template (instruct builds do); base
-models are rejected at load time.
-
-### Hotkeys
-
-Each hotkey binds a combo (at least one modifier + one key, e.g. `ctrl+alt+space`, `cmd+shift+r`) to a recording mode:
-
-- `hold` — record while held, release to stop.
-- `toggle` — press to start, press again to stop.
-
-Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–`9`, `f1`–`f12`, arrows, `space`, `tab`, `enter`, `esc`.
-
-#### Picking a microphone
-
-`gosaid setup` asks for the global default microphone on a fresh setup (or when you start from scratch), writing the `microphone` field at the top level of `config.json` — it's used by every hotkey unless overridden. Adding a shortcut later reuses that device rather than asking again; change it by editing `config.json`. By default recording uses the system default input. To override the default for a specific hotkey, edit the hotkey's `microphone` field — use a case-insensitive substring of the device name:
-
-```json
-"ctrl+alt+space": {
-  "mode": "hold",
-  "microphone": "usb pnp",
-  "transcribe": { "model": "speech:turbo" }
-}
-```
-
-If the device isn't connected when recording starts, GoSaid falls back to the system default (and logs a warning) rather than failing the dictation.
-
-### Pipeline stages
-
-A hotkey runs up to three stages in order: `transcribe` → (`enhance` or `compose`) → `translate`. Only `transcribe` is required.
-
-| Stage | What it does |
-|---|---|
-| `transcribe` | Speech to text. Optional `input_language` (ISO 639-1 hint) and `output_language` |
-| `enhance` | Strips "um"s, false starts, and repeats without changing meaning or style |
-| `compose` | Treats your speech as an instruction and writes the artifact — *"write a polite email to Alice asking to reschedule to Thursday"*. Optional `instructions` field adds a per-hotkey style directive |
-| `translate` | Renders the result in another language (`output_language`) |
-
-A full pipeline — dictate in any language, get clean English typed out:
-
-```json
-"cmd+shift+r": {
-  "mode": "hold",
-  "transcribe": { "model": "speech:turbo" },
-  "enhance":    { "model": "openai:gpt-5.4-nano" },
-  "translate":  { "model": "openai:gpt-5.4-nano", "output_language": "en" }
-}
-```
-
-Handy extras: any optional stage takes `"enable": false` to skip it without deleting the block, and the top-level `user_context` field gives `compose` personal context (name, role, tone, email signature).
-
-## Manual installation
-
-Prebuilt binaries for all platforms are on the [releases page](https://github.com/dmtrkzntsv/gosaid/releases/latest).
-
-### macOS / Linux
-
-```
-tar -xzf gosaid-<version>-<os>-<arch>.tar.gz
-sudo mv gosaid-<version>-<os>-<arch>/gosaid /usr/local/bin/
+```bash
 gosaid config
-gosaid                         # foreground; Ctrl+C to stop
 ```
 
-The macOS binary is signed and notarized — no Gatekeeper warning. If you run an unsigned build from source, grant Microphone and Accessibility to your **terminal app** (Terminal/iTerm/Ghostty) in System Settings → Privacy & Security.
-
-### From source (Go 1.25+)
-
-```
-git clone https://github.com/dmtrkzntsv/gosaid
-cd gosaid
-make build
-./gosaid version
-```
+See **[docs/configuration.md](docs/configuration.md)** for the full reference.
 
 ## License
 
