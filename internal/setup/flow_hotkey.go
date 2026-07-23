@@ -13,13 +13,13 @@ import (
 
 const pickTypeOwn = "\x00type-own"
 
-// askCombo picks a key combo: curated list (minus already-bound combos, except
-// the one being edited) or free text validated by the hotkey parser. current
-// is the combo being edited ("" when adding).
-func askCombo(s *Session, current string) (string, error) {
+// askCombo picks a key combo for a NEW hotkey: the curated list minus
+// already-bound combos, or free text validated by the hotkey parser. The edit
+// path never calls this — an existing hotkey's combo is fixed.
+func askCombo(s *Session) (string, error) {
 	var opts []huh.Option[string]
 	for _, c := range SuggestedCombos {
-		if _, bound := s.Cfg.Hotkeys[c]; !bound || c == current {
+		if _, bound := s.Cfg.Hotkeys[c]; !bound {
 			opts = append(opts, huh.NewOption(c, c))
 		}
 	}
@@ -27,7 +27,7 @@ func askCombo(s *Session, current string) (string, error) {
 		huh.NewOption("Type your own…", pickTypeOwn),
 		huh.NewOption("← Back", pickBack),
 	)
-	choice := current
+	choice := ""
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Shortcut").Options(opts...).
 			Height(listHeight(len(opts))).Value(&choice),
@@ -40,7 +40,7 @@ func askCombo(s *Session, current string) (string, error) {
 	if choice != pickTypeOwn {
 		return choice, nil
 	}
-	combo := current
+	combo := ""
 	var lockingSeen *hotkey.LockingKeyError
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewInput().Title("Shortcut").
@@ -56,7 +56,7 @@ func askCombo(s *Session, current string) (string, error) {
 					}
 					return err
 				}
-				if _, bound := s.Cfg.Hotkeys[v]; bound && v != current {
+				if _, bound := s.Cfg.Hotkeys[v]; bound {
 					return fmt.Errorf("%q is already bound", v)
 				}
 				return nil

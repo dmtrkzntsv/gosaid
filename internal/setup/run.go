@@ -148,12 +148,17 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 	}
 	a.TranscribeRef = ref
 
-	// 3. Shortcut.
-	combo, err := askCombo(s, a.Combo)
-	if err != nil {
-		return err
+	// 3. Shortcut. When editing an existing hotkey the combo is fixed — its
+	// identity — so don't re-ask; only prompt when adding a new binding.
+	if prefill == nil {
+		combo, err := askCombo(s)
+		if err != nil {
+			return err
+		}
+		a.Combo = combo
+	} else {
+		fmt.Printf("Editing %s\n", a.Combo)
 	}
-	a.Combo = combo
 
 	// 4. Mode.
 	mode, err := askMode(a.Mode)
