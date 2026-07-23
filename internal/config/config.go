@@ -13,6 +13,10 @@ type Config struct {
 	// language; the model is instructed to match the user's instruction
 	// language for the output.
 	UserContext string `json:"user_context,omitempty"`
+	// Microphone is the default input device for all hotkeys, matched
+	// case-insensitively as a substring of the device name. Empty uses the
+	// system default. A hotkey's own Microphone field overrides this.
+	Microphone string `json:"microphone,omitempty"`
 }
 
 type Driver struct {
@@ -27,15 +31,25 @@ type Endpoint struct {
 
 // EndpointConfig is the per-endpoint configuration. Which fields are required
 // depends on the driver type: openai_compatible needs api_base/api_key;
-// whisper_cpp needs models (name → GGML model file path).
+// whisper_cpp needs models (name → GGML model file path);
+// llama_cpp needs models (name → GGUF model file path).
 type EndpointConfig struct {
 	APIBase string            `json:"api_base,omitempty"`
 	APIKey  string            `json:"api_key,omitempty"`
 	Models  map[string]string `json:"models,omitempty"`
-	// UnloadAfterSeconds (whisper_cpp only) frees a loaded model after this
+	// UnloadAfterSeconds (whisper_cpp / llama_cpp only) frees a loaded model after this
 	// many seconds without use; it reloads lazily on the next dictation.
 	// 0 or absent keeps models resident once loaded.
 	UnloadAfterSeconds int `json:"unload_after_seconds,omitempty"`
+}
+
+// MicrophoneFor resolves the input device for a hotkey: the hotkey's own
+// Microphone if set, else the global default, else "" (system default).
+func (c *Config) MicrophoneFor(hk Hotkey) string {
+	if hk.Microphone != "" {
+		return hk.Microphone
+	}
+	return c.Microphone
 }
 
 type HotkeyMode string
@@ -48,8 +62,9 @@ const (
 type Hotkey struct {
 	Mode HotkeyMode `json:"mode,omitempty"`
 	// Microphone selects the input device for this hotkey by name —
-	// a case-insensitive substring match against `gosaid mic list`.
-	// Empty uses the system default. If the device is absent when
+	// a case-insensitive substring match (pick devices interactively with
+	// `gosaid setup mic`). Empty falls back to the global Microphone
+	// setting, then the system default. If the device is absent when
 	// recording starts, capture falls back to the default (logged).
 	Microphone string          `json:"microphone,omitempty"`
 	Transcribe TranscribeStage `json:"transcribe"`
@@ -115,6 +130,7 @@ const (
 	CurrentVersion         = 2
 	DriverOpenAICompatible = "openai_compatible"
 	DriverWhisperCPP       = "whisper_cpp"
+	DriverLlamaCPP         = "llama_cpp"
 	InjectionModePaste     = "paste"
 	DefaultToggleSeconds   = 60
 )
