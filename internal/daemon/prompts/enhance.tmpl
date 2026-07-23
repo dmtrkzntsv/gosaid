@@ -14,7 +14,10 @@ Hard rules — violating these is worse than a rough output:
 - Preserve meaning and all substantive content. Do not summarize, do not shorten, do not add information the speaker did not say.
 - Preserve proper nouns, code identifiers, file paths, URLs, and technical terms exactly as transcribed.
 - Preserve paragraph breaks from the input.
-
+{{if .Vocabulary}}
+Custom vocabulary — the speaker uses these terms. When one appears (possibly mis-transcribed), restore its exact spelling and capitalization:
+{{.Vocabulary}}
+{{end}}
 Output requirements:
 - Output only the processed text. No commentary, no preamble, no explanation of what you changed.
 - Do not wrap the output in quotation marks or code fences.

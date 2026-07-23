@@ -153,6 +153,33 @@ Mixing local and hosted stages within one hotkey is fine, and different hotkeys 
 | `log_level` | `debug`, `info`, `warn`, or `error`. Default `info`; unrecognized values fall back to it |
 | `version` | Config schema version — currently `2` |
 
+## Personal dictionary — custom vocabulary
+
+Names, product names, and jargon that transcription keeps mangling can be added to a personal dictionary. The words are fed to Whisper as a transcription hint and injected into every text stage's prompt (`enhance`, `compose`, `translate`, and selection rewrites), so custom terms are spelled the way you want.
+
+```bash
+gosaid dict Kubernetes        # add a word
+gosaid dict "New York"        # multi-word terms are fine (quote them)
+gosaid dict Kubernetes --delete   # remove a word
+gosaid dict                   # list the current words
+```
+
+Words are stored in `dictionary.json` next to `config.json` — a simple list you can also edit by hand:
+
+```json
+{
+  "words": ["Kubernetes", "PostHog", "gosaid"]
+}
+```
+
+| Platform | Path |
+|---|---|
+| macOS | `~/Library/Application Support/gosaid/dictionary.json` |
+| Linux | `~/.config/gosaid/dictionary.json` |
+| Windows | `%AppData%\gosaid\dictionary.json` |
+
+Matching is case-insensitive for add/remove, so a term is only stored once. Restart GoSaid after editing the file by hand — like `config.json`, the dictionary is read at startup. (`gosaid dict` writes the file directly; the change still takes effect on the daemon's next start.)
+
 ## Memory and performance
 
 On macOS, local inference runs on the GPU via Metal.

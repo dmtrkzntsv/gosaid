@@ -110,3 +110,43 @@ func TestRenderCompose_TrimsBlankInstructions(t *testing.T) {
 		t.Errorf("whitespace-only Instructions must be treated as empty:\n%s", out)
 	}
 }
+
+func TestRenderVocabulary_AllStages(t *testing.T) {
+	const vocab = "Kubernetes, PostHog, gosaid"
+	renderers := map[string]func() (string, error){
+		"translate": func() (string, error) {
+			return RenderTranslate(TranslateData{TargetLanguage: "English", Vocabulary: vocab})
+		},
+		"enhance": func() (string, error) {
+			return RenderEnhance(EnhanceData{Vocabulary: vocab})
+		},
+		"compose": func() (string, error) {
+			return RenderCompose(ComposeData{Vocabulary: vocab})
+		},
+		"transform": func() (string, error) {
+			return RenderTransform(TransformData{Selection: "hi", Vocabulary: vocab})
+		},
+	}
+	for name, render := range renderers {
+		out, err := render()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !strings.Contains(out, "Custom vocabulary") {
+			t.Errorf("%s: missing vocabulary heading:\n%s", name, out)
+		}
+		if !strings.Contains(out, vocab) {
+			t.Errorf("%s: missing vocabulary list:\n%s", name, out)
+		}
+	}
+}
+
+func TestRenderVocabulary_OmittedWhenEmpty(t *testing.T) {
+	out, err := RenderCompose(ComposeData{Vocabulary: "   "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "Custom vocabulary") {
+		t.Errorf("blank vocabulary must be omitted:\n%s", out)
+	}
+}

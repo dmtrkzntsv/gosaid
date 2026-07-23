@@ -27,6 +27,11 @@ type Pipeline struct {
 	Config     *config.Config
 	SampleRate int
 	Log        *slog.Logger
+	// Vocabulary is the user's personal dictionary rendered as a hint string
+	// (comma-separated). It is passed to Whisper as an initial prompt and
+	// injected into the text-stage system prompts so custom words are spelled
+	// correctly. Empty when the dictionary is empty or absent.
+	Vocabulary string
 }
 
 // Run executes the full pipeline for one hotkey trigger. Called after the
@@ -148,7 +153,9 @@ func (p *Pipeline) transcribe(ctx context.Context, samples []float32, stage conf
 
 	// English fast path via Whisper's native translate task.
 	if stage.OutputLanguage == "en" {
-		out, err := drv.TranslateSpeech(ctx, samples, p.SampleRate, model, drivers.TranslateSpeechOptions{})
+		out, err := drv.TranslateSpeech(ctx, samples, p.SampleRate, model, drivers.TranslateSpeechOptions{
+			InitialPrompt: p.Vocabulary,
+		})
 		if err != nil {
 			return "", "", err
 		}
@@ -156,7 +163,8 @@ func (p *Pipeline) transcribe(ctx context.Context, samples []float32, stage conf
 	}
 
 	res, err := drv.Transcribe(ctx, samples, p.SampleRate, model, drivers.TranscribeOptions{
-		Language: stage.InputLanguage,
+		Language:      stage.InputLanguage,
+		InitialPrompt: p.Vocabulary,
 	})
 	if err != nil {
 		return "", "", err
@@ -183,6 +191,7 @@ func (p *Pipeline) translate(ctx context.Context, input, detected string, stage 
 	system, err := RenderTranslate(TranslateData{
 		SourceLanguage: sourceName,
 		TargetLanguage: config.LanguageName(stage.OutputLanguage),
+		Vocabulary:     p.Vocabulary,
 	})
 	if err != nil {
 		return "", err
@@ -204,7 +213,7 @@ func (p *Pipeline) enhance(ctx context.Context, input string, stage *config.Enha
 	if err != nil {
 		return "", err
 	}
-	system, err := RenderEnhance(EnhanceData{})
+	system, err := RenderEnhance(EnhanceData{Vocabulary: p.Vocabulary})
 	if err != nil {
 		return "", err
 	}
@@ -228,6 +237,7 @@ func (p *Pipeline) compose(ctx context.Context, input string, stage *config.Comp
 	system, err := RenderCompose(ComposeData{
 		UserContext:  p.Config.UserContext,
 		Instructions: stage.Instructions,
+		Vocabulary:   p.Vocabulary,
 	})
 	if err != nil {
 		return "", err
@@ -252,6 +262,7 @@ func (p *Pipeline) transform(ctx context.Context, instruction, selection string,
 		Selection:    selection,
 		UserContext:  p.Config.UserContext,
 		Instructions: stage.Instructions,
+		Vocabulary:   p.Vocabulary,
 	})
 	if err != nil {
 		return "", err

@@ -9,6 +9,9 @@ About the user (use for personalization — name, role, tone, sign-offs — when
 {{end}}{{if .Instructions}}
 Additional instructions for this hotkey (apply on top of the defaults above; do not override the output-format rules below):
 {{.Instructions}}
+{{end}}{{if .Vocabulary}}
+Custom vocabulary — spell these proper nouns and terms exactly as given whenever they belong in the output:
+{{.Vocabulary}}
 {{end}}
 Output requirements:
 - Output only the finished artifact, nothing else.
