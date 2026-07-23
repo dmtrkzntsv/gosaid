@@ -1,0 +1,160 @@
+# Manual configuration
+
+`gosaid setup` covers the common local-only case. Edit `config.json` directly when you want something it doesn't offer: cloud providers, several hotkeys sharing different models, per-hotkey microphones, or mixed local/hosted pipelines.
+
+```bash
+gosaid config
+```
+
+opens the file in `$EDITOR`. A complete annotated sample lives at [`../internal/config/config.example.json`](../internal/config/config.example.json).
+
+| Platform | Path |
+|---|---|
+| macOS | `~/Library/Application Support/gosaid/config.json` |
+| Linux | `~/.config/gosaid/config.json` |
+| Windows | `%AppData%\gosaid\config.json` |
+
+Restart GoSaid after editing (`brew services restart gosaid`, or Ctrl+C and relaunch) — the config is read at startup.
+
+## `drivers` — where models come from
+
+A list of drivers, each with named endpoints. Models are referenced everywhere else as `<endpoint_id>:<model>`.
+
+- **`whisper_cpp`** — local transcription. Endpoint config is `models`, a map of name → GGML file path. `gosaid setup` writes this as the `speech` endpoint.
+- **`llama_cpp`** — local text stages. Same shape, GGUF file paths. `gosaid setup` writes this as the `text` endpoint.
+- **`openai_compatible`** — any hosted OpenAI-compatible API. Needs `api_base` and `api_key`. Works with OpenAI, Groq, OpenRouter, DeepSeek, Together, and others — swap the base URL. Add several endpoints to mix providers.
+
+Local endpoints also take `unload_after_seconds`: an idle model is freed after that many seconds and reloads on the next dictation. Omit it (or use `0`) to keep models resident once loaded.
+
+```json
+"drivers": [
+  {
+    "driver": "whisper_cpp",
+    "endpoints": [{
+      "id": "speech",
+      "config": {
+        "models": { "turbo": "~/Library/Application Support/gosaid/models/ggml-large-v3-turbo-q5_0.bin" },
+        "unload_after_seconds": 300
+      }
+    }]
+  },
+  {
+    "driver": "llama_cpp",
+    "endpoints": [{
+      "id": "text",
+      "config": {
+        "models": { "gemma-4-e2b": "~/Library/Application Support/gosaid/models/gemma-4-E2B-it-Q4_0.gguf" }
+      }
+    }]
+  },
+  {
+    "driver": "openai_compatible",
+    "endpoints": [{
+      "id": "openai",
+      "config": { "api_base": "https://api.openai.com/v1", "api_key": "sk-..." }
+    }]
+  }
+]
+```
+
+Local chat models must ship an embedded chat template (instruct builds do); base models are rejected at load time.
+
+### Downloading models by hand
+
+```bash
+gosaid model download ggerganov/whisper.cpp ggml-large-v3-turbo-q5_0.bin --name turbo
+gosaid model download ggml-org/gemma-4-E2B-it-GGUF gemma-4-E2B-it-Q4_0.gguf --name gemma-4-e2b
+```
+
+Downloaded models are registered in your config automatically, under the `speech` (whisper) or `text` (llama) endpoint.
+
+## `hotkeys` — what each shortcut does
+
+A map of combo → binding. Each combo needs at least one modifier plus one key.
+
+- **Modifiers:** `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`
+- **Keys:** `a`–`z`, `0`–`9`, `f1`–`f12`, arrows, `space`, `tab`, `enter`, `esc`
+
+Per binding:
+
+| Field | What it does |
+|---|---|
+| `mode` | `hold` (record while held) or `toggle` (press to start, press again to stop) |
+| `microphone` | Optional per-hotkey input device, matched as a case-insensitive substring of the device name. Overrides the global `microphone`. If the device isn't connected when recording starts, GoSaid falls back to the system default and logs a warning rather than failing the dictation |
+| `transcribe` / `enhance` / `compose` / `translate` | The pipeline stages — see below |
+
+The wizard lists the connected devices when it asks for a microphone, which is the easiest way to see the exact names.
+
+### Pipeline stages
+
+A hotkey runs up to three stages in order: `transcribe` → (`enhance` or `compose`) → `translate`. Only `transcribe` is required. Each stage names its own `model`, so different stages can run on different endpoints.
+
+| Stage | What it does |
+|---|---|
+| `transcribe` | Speech to text. Optional `input_language` (ISO 639-1 hint) and `output_language` |
+| `enhance` | Strips "um"s, false starts, and repeats without changing meaning or style |
+| `compose` | You describe what you want written and get the finished artifact — a message, note, commit message, snippet, summary, whatever the brief calls for. Audience and register are inferred from the instruction, and the output language matches the language you spoke in. Optional `instructions` adds a per-hotkey style directive on top of the defaults |
+| `translate` | Renders the result in another language (`output_language`) |
+
+Any optional stage takes `"enable": false` to skip it without deleting the block.
+
+A fully local pipeline — dictate in any language, get clean English typed out:
+
+```json
+"hotkeys": {
+  "cmd+shift+r": {
+    "mode": "hold",
+    "transcribe": { "model": "speech:turbo" },
+    "enhance":    { "model": "text:gemma-4-e2b" },
+    "translate":  { "model": "text:gemma-4-e2b", "output_language": "en" }
+  }
+}
+```
+
+The same pipeline with hosted text stages — local transcription, cloud cleanup:
+
+```json
+"hotkeys": {
+  "cmd+shift+r": {
+    "mode": "hold",
+    "transcribe": { "model": "speech:turbo" },
+    "enhance":    { "model": "openai:gpt-5.4-nano" },
+    "translate":  { "model": "openai:gpt-5.4-nano", "output_language": "en" }
+  }
+}
+```
+
+A compose hotkey — speak the brief, get the finished text — with a style directive applied to everything it writes:
+
+```json
+"cmd+shift+e": {
+  "mode": "hold",
+  "transcribe": { "model": "speech:turbo" },
+  "compose": {
+    "model": "text:gemma-4-e2b",
+    "instructions": "Write in a formal, business-email register."
+  }
+}
+```
+
+Mixing local and hosted stages within one hotkey is fine, and different hotkeys can use entirely different providers.
+
+## Global settings
+
+| Field | What it does |
+|---|---|
+| `microphone` | Default input device for every hotkey (substring match). Empty = system default |
+| `user_context` | Free-form personal context (name, role, tone, email signature) fed to the `compose` stage. Any language |
+| `toggle_max_seconds` | Safety cap on a `toggle` recording. Default `60` |
+| `injection_mode` | How text reaches the app under your cursor. `paste` is currently the only supported value |
+| `sound_feedback` | Play start/stop cues when recording |
+| `log_level` | `debug`, `info`, `warn`, or `error`. Default `info`; unrecognized values fall back to it |
+| `version` | Config schema version — currently `2` |
+
+## Memory and performance
+
+On macOS, local inference runs on the GPU via Metal.
+
+Models load lazily on first use and stay resident for instant dictation, at their full weight size. Budget RAM for every model that can be loaded at once — e.g. whisper `turbo` (~550 MB) plus `gemma-4-e2b` (~2.8 GB) ≈ 3.4 GB. Mixing a small enhance model with a larger compose model is fine, but each loads separately.
+
+Set `unload_after_seconds` on a local endpoint to trade a few seconds of reload latency for that memory.
