@@ -6,13 +6,14 @@ import (
 	"text/template"
 )
 
-//go:embed prompts/translate.tmpl prompts/enhance.tmpl prompts/compose.tmpl
+//go:embed prompts/translate.tmpl prompts/enhance.tmpl prompts/compose.tmpl prompts/transform.tmpl
 var promptFS embed.FS
 
 var (
 	translateTmpl = template.Must(template.ParseFS(promptFS, "prompts/translate.tmpl"))
 	enhanceTmpl   = template.Must(template.ParseFS(promptFS, "prompts/enhance.tmpl"))
 	composeTmpl   = template.Must(template.ParseFS(promptFS, "prompts/compose.tmpl"))
+	transformTmpl = template.Must(template.ParseFS(promptFS, "prompts/transform.tmpl"))
 )
 
 type TranslateData struct {
@@ -23,6 +24,12 @@ type TranslateData struct {
 type EnhanceData struct{}
 
 type ComposeData struct {
+	UserContext  string
+	Instructions string
+}
+
+type TransformData struct {
+	Selection    string
 	UserContext  string
 	Instructions string
 }
@@ -48,6 +55,16 @@ func RenderCompose(d ComposeData) (string, error) {
 	d.Instructions = strings.TrimSpace(d.Instructions)
 	var b strings.Builder
 	if err := composeTmpl.Execute(&b, d); err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func RenderTransform(d TransformData) (string, error) {
+	d.UserContext = strings.TrimSpace(d.UserContext)
+	d.Instructions = strings.TrimSpace(d.Instructions)
+	var b strings.Builder
+	if err := transformTmpl.Execute(&b, d); err != nil {
 		return "", err
 	}
 	return b.String(), nil

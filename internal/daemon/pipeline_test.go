@@ -118,7 +118,7 @@ func TestPipeline_TranscribeInputLanguageReachesDriver(t *testing.T) {
 		"ctrl+alt+space": baseHotkey(config.TranscribeStage{Model: "m:x", InputLanguage: "ru"}),
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if gotLang != "ru" {
@@ -142,7 +142,7 @@ func TestPipeline_TranscribeOnly(t *testing.T) {
 	}
 	p := newPipeline(t, drv, cfg, &sink)
 
-	err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"])
+	err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil)
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestPipeline_EnglishFastPath(t *testing.T) {
 	}
 	p := newPipeline(t, drv, cfg, &sink)
 
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if sink.String() != "translated english" {
@@ -196,7 +196,7 @@ func TestPipeline_TranslateSkippedWhenLanguageMatches(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if sink.String() != "bonjour" {
@@ -240,7 +240,7 @@ func TestPipeline_EnhanceThenTranslate(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if sink.String() != "hello!" {
@@ -275,7 +275,7 @@ func TestPipeline_Compose(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if sink.String() != "Dear Alice, ..." {
@@ -308,7 +308,7 @@ func TestPipeline_ComposeUsesUserContext(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"About the user (use for personalization", "Dmitry Kuznetsov"} {
@@ -342,7 +342,7 @@ func TestPipeline_ComposeUsesStageInstructions(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"Additional instructions for this hotkey", "strictly formal register"} {
@@ -391,7 +391,7 @@ func TestPipeline_ComposeThenTranslate(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if sink.String() != "Dear Alice, ..." {
@@ -427,7 +427,7 @@ func TestPipeline_ComposeSkipsEnhance(t *testing.T) {
 		},
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"]); err != nil {
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil); err != nil {
 		t.Fatal(err)
 	}
 	if sink.String() != "Note: ..." {
@@ -450,11 +450,189 @@ func TestPipeline_TranscribeErrorTransitionsToError(t *testing.T) {
 		"ctrl+alt+space": baseHotkey(config.TranscribeStage{Model: "m:x"}),
 	}
 	p := newPipeline(t, drv, cfg, &sink)
-	err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"])
+	err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if p.Core.State() != StateError {
 		t.Errorf("state = %s, want Error", p.Core.State())
+	}
+}
+
+func TestComposeWithSelectionUsesTransformPrompt(t *testing.T) {
+	var gotSystem, gotUser string
+	drv := &mockDriver{
+		transcribe: func(model string, _ drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "make it formal", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, system, user string) (string, error) {
+			gotSystem, gotUser = system, user
+			return "Formal text.", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := &config.Config{
+		Version: 2,
+		Hotkeys: map[string]config.Hotkey{"ctrl+alt+space": {
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:c"},
+		}},
+		ToggleMaxSeconds: 1,
+		InjectionMode:    config.InjectionModePaste,
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{Text: "hey buddy", OK: true}
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(gotSystem, "hey buddy") {
+		t.Fatalf("system prompt must embed the selection, got:\n%s", gotSystem)
+	}
+	if !strings.Contains(gotSystem, "rewrites an existing piece of text") {
+		t.Fatalf("expected transform prompt, got:\n%s", gotSystem)
+	}
+	if gotUser != "make it formal" {
+		t.Fatalf("user message must be the transcript, got %q", gotUser)
+	}
+	if sink.String() != "Formal text." {
+		t.Fatalf("injected %q", sink.String())
+	}
+}
+
+// Reasoning models wrap their chain of thought in <think>…</think>; the
+// transform stage must inject only the answer, like every other LLM stage.
+func TestTransformStripsReasoning(t *testing.T) {
+	drv := &mockDriver{
+		transcribe: func(string, drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "make it formal", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, _, _ string) (string, error) {
+			return "<think>\nThe user wants a formal register.\n</think>\n\nDear Alice,", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := baseConfig()
+	cfg.Hotkeys = map[string]config.Hotkey{
+		"ctrl+alt+space": {
+			Mode:       config.ModeHold,
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:x"},
+		},
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{Text: "hey buddy", OK: true}
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if sink.String() != "Dear Alice," {
+		t.Fatalf("injected %q, want the answer with the reasoning block stripped", sink.String())
+	}
+}
+
+func TestComposeWithoutSelectionFallsBack(t *testing.T) {
+	var gotSystem string
+	drv := &mockDriver{
+		transcribe: func(model string, _ drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "write a greeting", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, system, _ string) (string, error) {
+			gotSystem = system
+			return "Hello!", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := &config.Config{
+		Version: 2,
+		Hotkeys: map[string]config.Hotkey{"ctrl+alt+space": {
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:c"},
+		}},
+		ToggleMaxSeconds: 1,
+		InjectionMode:    config.InjectionModePaste,
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{} // capture ran, found nothing
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if strings.Contains(gotSystem, "rewrites an existing piece of text") {
+		t.Fatalf("must use compose prompt when no selection, got:\n%s", gotSystem)
+	}
+	if sink.String() != "Hello!" {
+		t.Fatalf("injected %q", sink.String())
+	}
+}
+
+func TestComposeSelectionCaptureError(t *testing.T) {
+	drv := &mockDriver{
+		transcribe: func(model string, _ drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "anything", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, _, _ string) (string, error) {
+			t.Fatal("chat must not be called on capture error")
+			return "", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := &config.Config{
+		Version: 2,
+		Hotkeys: map[string]config.Hotkey{"ctrl+alt+space": {
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:c"},
+		}},
+		ToggleMaxSeconds: 1,
+		InjectionMode:    config.InjectionModePaste,
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{Err: errors.New("copy synthesis failed")}
+	err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel)
+	if err == nil || !strings.Contains(err.Error(), "copy synthesis failed") {
+		t.Fatalf("want capture error, got %v", err)
+	}
+	if sink.String() != "" {
+		t.Fatalf("nothing must be injected, got %q", sink.String())
+	}
+	if p.Core.State() != StateError {
+		t.Fatalf("state = %v, want StateError", p.Core.State())
+	}
+}
+
+func TestEmptyTranscriptSkipsLLMStages(t *testing.T) {
+	drv := &mockDriver{
+		transcribe: func(model string, _ drivers.TranscribeOptions) (drivers.TranscribeResult, error) {
+			return drivers.TranscribeResult{Text: "  ", DetectedLanguage: "en"}, nil
+		},
+		chat: func(_, _, _ string) (string, error) {
+			t.Fatal("chat must not be called for empty transcript")
+			return "", nil
+		},
+	}
+	var sink strings.Builder
+	cfg := &config.Config{
+		Version: 2,
+		Hotkeys: map[string]config.Hotkey{"ctrl+alt+space": {
+			Transcribe: config.TranscribeStage{Model: "m:x"},
+			Compose:    &config.ComposeStage{Model: "m:c"},
+		}},
+		ToggleMaxSeconds: 1,
+		InjectionMode:    config.InjectionModePaste,
+	}
+	p := newPipeline(t, drv, cfg, &sink)
+
+	sel := make(chan inject.SelectionResult, 1)
+	sel <- inject.SelectionResult{Text: "precious", OK: true}
+	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if sink.String() != "" {
+		t.Fatalf("nothing must be injected, got %q", sink.String())
 	}
 }

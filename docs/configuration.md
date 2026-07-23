@@ -93,10 +93,12 @@ A hotkey runs up to three stages in order: `transcribe` → (`enhance` or `compo
 |---|---|
 | `transcribe` | Speech to text. Optional `input_language` (ISO 639-1 hint) and `output_language` |
 | `enhance` | Strips "um"s, false starts, and repeats without changing meaning or style |
-| `compose` | You describe what you want written and get the finished artifact — a message, note, commit message, snippet, summary, whatever the brief calls for. Audience and register are inferred from the instruction, and the output language matches the language you spoke in. Optional `instructions` adds a per-hotkey style directive on top of the defaults |
+| `compose` | You describe what you want written and get the finished artifact — a message, note, commit message, snippet, summary, whatever the brief calls for. Audience and register are inferred from the instruction, and the output language matches the language you spoke in. With text selected in the focused app, the brief is applied to that selection instead and the rewrite replaces it, keeping the selection's language (macOS only — see below). Optional `instructions` adds a per-hotkey style directive on top of the defaults |
 | `translate` | Renders the result in another language (`output_language`) |
 
 Any optional stage takes `"enable": false` to skip it without deleting the block.
+
+**Editing a selection.** A `compose` hotkey pressed while text is selected reads that selection and treats your speech as an instruction for changing it, replacing the selection with the result. Detection is automatic — no config, no separate hotkey — and falls back to writing from scratch whenever nothing is selected. Reading the selection borrows the clipboard for a moment (the previous contents, text or image, are restored), and needs the same **Accessibility** permission as text injection. Currently macOS-only: on Linux and Windows the synthesized copy keystroke would interrupt a foreground terminal process, so compose there always writes from scratch.
 
 A fully local pipeline — dictate in any language, get clean English typed out:
 
