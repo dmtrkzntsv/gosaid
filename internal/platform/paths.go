@@ -28,14 +28,14 @@ func ConfigFile() (string, error) {
 	return filepath.Join(dir, "config.json"), nil
 }
 
-// DictionaryFile is the absolute path of the dictionary.json file, which
+// VocabularyFile is the absolute path of the vocabulary.json file, which
 // holds the user's custom vocabulary. It lives next to config.json.
-func DictionaryFile() (string, error) {
+func VocabularyFile() (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "dictionary.json"), nil
+	return filepath.Join(dir, "vocabulary.json"), nil
 }
 
 // LogDir returns the platform-specific directory for log files.

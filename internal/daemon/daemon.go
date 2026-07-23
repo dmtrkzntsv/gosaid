@@ -43,16 +43,16 @@ func Run(injector inject.Injector) error {
 		"config", cfgPath,
 	)
 
-	// Personal dictionary is best-effort: a missing or unreadable file must
+	// Personal vocabulary is best-effort: a missing or unreadable file must
 	// not stop the daemon, it just means no custom-word hints.
 	var vocabulary string
-	if dictPath, derr := config.DictionaryPath(); derr != nil {
-		log.Warn("resolve dictionary path", "err", derr)
-	} else if dict, derr := config.LoadDictionary(dictPath); derr != nil {
-		log.Warn("load dictionary", "err", derr, "path", dictPath)
-	} else if len(dict.Words) > 0 {
-		vocabulary = dict.Prompt()
-		log.Info("personal dictionary loaded", "words", len(dict.Words))
+	if vocabPath, derr := config.VocabularyPath(); derr != nil {
+		log.Warn("resolve vocabulary path", "err", derr)
+	} else if vocab, derr := config.LoadVocabulary(vocabPath); derr != nil {
+		log.Warn("load vocabulary", "err", derr, "path", vocabPath)
+	} else if len(vocab.Words) > 0 {
+		vocabulary = vocab.Prompt()
+		log.Info("personal vocabulary loaded", "words", len(vocab.Words))
 	}
 	if cfg.Version != config.CurrentVersion {
 		log.Warn("config version mismatch — unknown fields are ignored; update the `version` field to silence this warning",

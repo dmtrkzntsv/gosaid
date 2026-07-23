@@ -14,8 +14,8 @@ const dictUsage = `usage:
   gosaid dict                   list the current words`
 
 // RunDict handles `gosaid dict ...`: add, delete, or list personal-dictionary
-// words. The dictionary is a comma-separated hint fed to transcription and the
-// text stages so custom vocabulary is spelled correctly.
+// words. The list is a comma-separated hint fed to transcription and the text
+// stages so custom vocabulary is spelled correctly.
 func RunDict(args []string) int {
 	var del bool
 	var words []string
@@ -36,12 +36,12 @@ func RunDict(args []string) int {
 	}
 	word := strings.TrimSpace(strings.Join(words, " "))
 
-	path, err := config.DictionaryPath()
+	path, err := config.VocabularyPath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	dict, err := config.LoadDictionary(path)
+	vocab, err := config.LoadVocabulary(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -53,22 +53,22 @@ func RunDict(args []string) int {
 			fmt.Fprintln(os.Stderr, dictUsage)
 			return 2
 		}
-		if len(dict.Words) == 0 {
+		if len(vocab.Words) == 0 {
 			fmt.Fprintln(os.Stderr, "dictionary is empty")
 			return 0
 		}
-		for _, w := range dict.Words {
+		for _, w := range vocab.Words {
 			fmt.Println(w)
 		}
 		return 0
 	}
 
 	if del {
-		if !dict.Remove(word) {
+		if !vocab.Remove(word) {
 			fmt.Fprintf(os.Stderr, "%q is not in the dictionary\n", word)
 			return 0
 		}
-		if err := config.SaveDictionary(path, dict); err != nil {
+		if err := config.SaveVocabulary(path, vocab); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			return 1
 		}
@@ -76,11 +76,11 @@ func RunDict(args []string) int {
 		return 0
 	}
 
-	if !dict.Add(word) {
+	if !vocab.Add(word) {
 		fmt.Fprintf(os.Stderr, "%q is already in the dictionary\n", word)
 		return 0
 	}
-	if err := config.SaveDictionary(path, dict); err != nil {
+	if err := config.SaveVocabulary(path, vocab); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}

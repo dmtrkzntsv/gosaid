@@ -164,7 +164,7 @@ gosaid dict Kubernetes --delete   # remove a word
 gosaid dict                   # list the current words
 ```
 
-Words are stored in `dictionary.json` next to `config.json` — a simple list you can also edit by hand:
+Words are stored in `vocabulary.json` next to `config.json` — a simple list you can also edit by hand:
 
 ```json
 {
@@ -174,11 +174,11 @@ Words are stored in `dictionary.json` next to `config.json` — a simple list yo
 
 | Platform | Path |
 |---|---|
-| macOS | `~/Library/Application Support/gosaid/dictionary.json` |
-| Linux | `~/.config/gosaid/dictionary.json` |
-| Windows | `%AppData%\gosaid\dictionary.json` |
+| macOS | `~/Library/Application Support/gosaid/vocabulary.json` |
+| Linux | `~/.config/gosaid/vocabulary.json` |
+| Windows | `%AppData%\gosaid\vocabulary.json` |
 
-Matching is case-insensitive for add/remove, so a term is only stored once. Restart GoSaid after editing the file by hand — like `config.json`, the dictionary is read at startup. (`gosaid dict` writes the file directly; the change still takes effect on the daemon's next start.)
+Matching is case-insensitive for add/remove, so a term is only stored once. Restart GoSaid after editing the file by hand — like `config.json`, the vocabulary is read at startup. (`gosaid dict` writes the file directly; the change still takes effect on the daemon's next start.)
 
 ## Memory and performance
 

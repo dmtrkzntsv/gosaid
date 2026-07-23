@@ -7,13 +7,13 @@ import (
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
 
-// dictFixture points the dictionary at a temp dir via XDG_CONFIG_HOME and
+// dictFixture points the vocabulary at a temp dir via XDG_CONFIG_HOME and
 // returns the resolved path.
 func dictFixture(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	return filepath.Join(dir, "gosaid", "dictionary.json")
+	return filepath.Join(dir, "gosaid", "vocabulary.json")
 }
 
 func TestRunDictAddThenDelete(t *testing.T) {
@@ -22,7 +22,7 @@ func TestRunDictAddThenDelete(t *testing.T) {
 	if code := RunDict([]string{"Kubernetes"}); code != 0 {
 		t.Fatalf("add exit = %d, want 0", code)
 	}
-	d, err := config.LoadDictionary(path)
+	d, err := config.LoadVocabulary(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,14 +34,14 @@ func TestRunDictAddThenDelete(t *testing.T) {
 	if code := RunDict([]string{"kubernetes"}); code != 0 {
 		t.Fatalf("duplicate add exit = %d, want 0", code)
 	}
-	if d, _ = config.LoadDictionary(path); len(d.Words) != 1 {
+	if d, _ = config.LoadVocabulary(path); len(d.Words) != 1 {
 		t.Fatalf("duplicate add changed words: %v", d.Words)
 	}
 
 	if code := RunDict([]string{"Kubernetes", "--delete"}); code != 0 {
 		t.Fatalf("delete exit = %d, want 0", code)
 	}
-	if d, _ = config.LoadDictionary(path); len(d.Words) != 0 {
+	if d, _ = config.LoadVocabulary(path); len(d.Words) != 0 {
 		t.Fatalf("word not removed: %v", d.Words)
 	}
 }
@@ -51,7 +51,7 @@ func TestRunDictMultiWordTerm(t *testing.T) {
 	if code := RunDict([]string{"New", "York"}); code != 0 {
 		t.Fatalf("add exit = %d, want 0", code)
 	}
-	d, _ := config.LoadDictionary(path)
+	d, _ := config.LoadVocabulary(path)
 	if !d.Contains("New York") {
 		t.Fatalf("multi-word term not joined: %v", d.Words)
 	}
