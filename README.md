@@ -151,7 +151,7 @@ Modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`win`. Keys: `a`–`z`, `0`–
 
 #### Picking a microphone
 
-`gosaid setup` sets the global default microphone interactively (the `microphone` field at the top level of `config.json`), used by every hotkey unless overridden. By default recording uses the system default input. To override the default for a specific hotkey, edit the hotkey's `microphone` field in `config.json` — use a case-insensitive substring of the device name:
+`gosaid setup` asks for the global default microphone on a fresh setup (or when you start from scratch), writing the `microphone` field at the top level of `config.json` — it's used by every hotkey unless overridden. Adding a shortcut later reuses that device rather than asking again; change it by editing `config.json`. By default recording uses the system default input. To override the default for a specific hotkey, edit the hotkey's `microphone` field — use a case-insensitive substring of the device name:
 
 ```json
 "ctrl+alt+space": {

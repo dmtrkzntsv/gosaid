@@ -34,7 +34,7 @@ func Run(args []string) int {
 		return 1
 	}
 
-	prefill, err := chooseEntry(s)
+	prefill, fresh, err := chooseEntry(s)
 	if err != nil {
 		if errors.Is(err, errCancelStep) || errors.Is(err, huh.ErrUserAborted) {
 			return 0
@@ -43,10 +43,13 @@ func Run(args []string) int {
 		return 1
 	}
 
-	// Microphone is a global setting, so ask it once here — not inside
-	// runWizard, which runs per hotkey. Run the mic step, then the wizard;
-	// a backed-out or failed step short-circuits to the shared handling below.
-	err = uncancel(askGlobalMicrophone(s))
+	// The microphone is global, so it's only asked when there isn't one yet
+	// (a fresh or reset config). Adding another shortcut to a configured
+	// setup reuses the chosen device — change it by editing config.json.
+	// A backed-out or failed step short-circuits to the shared handling below.
+	if fresh {
+		err = uncancel(askGlobalMicrophone(s))
+	}
 	if err == nil {
 		err = uncancel(runWizard(s, prefill))
 	}
@@ -72,13 +75,15 @@ func Run(args []string) int {
 	return 0
 }
 
-// chooseEntry runs the fresh-vs-existing branch, returning the answers to
-// pre-fill the wizard with (nil = fresh). It may reset the config in place.
-func chooseEntry(s *Session) (*HotkeyAnswers, error) {
+// chooseEntry runs the fresh-vs-existing branch. It returns the answers to
+// pre-fill the wizard with (nil = build a new hotkey) and whether the config
+// was started from scratch — the caller asks for a microphone only then,
+// since an existing config already has one. It may reset the config in place.
+func chooseEntry(s *Session) (prefill *HotkeyAnswers, fresh bool, err error) {
 	if IsUnconfigured(s.Cfg) {
 		ResetConfig(s.Cfg)
 		s.Dirty = true
-		return nil, nil // fresh
+		return nil, true, nil
 	}
 	scratch := "no"
 	scratchOpts := []huh.Option[string]{
@@ -93,12 +98,12 @@ func chooseEntry(s *Session) (*HotkeyAnswers, error) {
 			Height(listHeight(len(scratchOpts))).
 			Value(&scratch),
 	)).Run(); err != nil {
-		return nil, cancelable(err)
+		return nil, false, cancelable(err)
 	}
 	if scratch == "yes" {
 		ResetConfig(s.Cfg)
 		s.Dirty = true
-		return nil, nil
+		return nil, true, nil
 	}
 
 	// "No" — pick a hotkey to edit, or add a new one.
@@ -118,13 +123,13 @@ func chooseEntry(s *Session) (*HotkeyAnswers, error) {
 		huh.NewSelect[string]().Title("Which hotkey?").Options(opts...).
 			Height(listHeight(len(opts))).Value(&choice),
 	)).Run(); err != nil {
-		return nil, cancelable(err)
+		return nil, false, cancelable(err)
 	}
 	if choice == pickAddNew {
-		return nil, nil
+		return nil, false, nil
 	}
 	a := AnswersFrom(choice, s.Cfg.Hotkeys[choice])
-	return &a, nil
+	return &a, false, nil
 }
 
 // askGlobalMicrophone sets the global default input device. It is a
