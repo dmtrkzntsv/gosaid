@@ -12,6 +12,8 @@ About the user (use for personalization — name, role, tone, sign-offs — when
 {{end}}{{if .Instructions}}
 Additional instructions for this hotkey (apply on top of the defaults above; do not override the output-format rules below):
 {{.Instructions}}
+{{end}}{{if .Vocabulary}}Custom vocabulary — spell these proper nouns and terms exactly as given whenever they appear in the output:
+{{.Vocabulary}}
 {{end}}Rules:
 - Keep the output in the same language as the selected text, even if the instruction was spoken in a different language — unless the instruction explicitly asks to translate.
 - Apply only the requested change; preserve everything else — meaning, tone, formatting, paragraph breaks, proper nouns, code identifiers, URLs — as much as the instruction allows.

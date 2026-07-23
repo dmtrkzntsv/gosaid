@@ -19,22 +19,32 @@ var (
 type TranslateData struct {
 	SourceLanguage string
 	TargetLanguage string
+	// Vocabulary is the user's personal dictionary as a comma-separated hint.
+	Vocabulary string
 }
 
-type EnhanceData struct{}
+type EnhanceData struct {
+	// Vocabulary is the user's personal dictionary as a comma-separated hint.
+	Vocabulary string
+}
 
 type ComposeData struct {
 	UserContext  string
 	Instructions string
+	// Vocabulary is the user's personal dictionary as a comma-separated hint.
+	Vocabulary string
 }
 
 type TransformData struct {
 	Selection    string
 	UserContext  string
 	Instructions string
+	// Vocabulary is the user's personal dictionary as a comma-separated hint.
+	Vocabulary string
 }
 
 func RenderTranslate(d TranslateData) (string, error) {
+	d.Vocabulary = strings.TrimSpace(d.Vocabulary)
 	var b strings.Builder
 	if err := translateTmpl.Execute(&b, d); err != nil {
 		return "", err
@@ -43,6 +53,7 @@ func RenderTranslate(d TranslateData) (string, error) {
 }
 
 func RenderEnhance(d EnhanceData) (string, error) {
+	d.Vocabulary = strings.TrimSpace(d.Vocabulary)
 	var b strings.Builder
 	if err := enhanceTmpl.Execute(&b, d); err != nil {
 		return "", err
@@ -53,6 +64,7 @@ func RenderEnhance(d EnhanceData) (string, error) {
 func RenderCompose(d ComposeData) (string, error) {
 	d.UserContext = strings.TrimSpace(d.UserContext)
 	d.Instructions = strings.TrimSpace(d.Instructions)
+	d.Vocabulary = strings.TrimSpace(d.Vocabulary)
 	var b strings.Builder
 	if err := composeTmpl.Execute(&b, d); err != nil {
 		return "", err
@@ -63,6 +75,7 @@ func RenderCompose(d ComposeData) (string, error) {
 func RenderTransform(d TransformData) (string, error) {
 	d.UserContext = strings.TrimSpace(d.UserContext)
 	d.Instructions = strings.TrimSpace(d.Instructions)
+	d.Vocabulary = strings.TrimSpace(d.Vocabulary)
 	var b strings.Builder
 	if err := transformTmpl.Execute(&b, d); err != nil {
 		return "", err

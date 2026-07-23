@@ -42,6 +42,18 @@ func Run(injector inject.Injector) error {
 		"os", runtime.GOOS, "arch", runtime.GOARCH,
 		"config", cfgPath,
 	)
+
+	// Personal vocabulary is best-effort: a missing or unreadable file must
+	// not stop the daemon, it just means no custom-word hints.
+	var vocabulary string
+	if vocabPath, derr := config.VocabularyPath(); derr != nil {
+		log.Warn("resolve vocabulary path", "err", derr)
+	} else if vocab, derr := config.LoadVocabulary(vocabPath); derr != nil {
+		log.Warn("load vocabulary", "err", derr, "path", vocabPath)
+	} else if len(vocab.Words) > 0 {
+		vocabulary = vocab.Prompt()
+		log.Info("personal vocabulary loaded", "words", len(vocab.Words))
+	}
 	if cfg.Version != config.CurrentVersion {
 		log.Warn("config version mismatch — unknown fields are ignored; update the `version` field to silence this warning",
 			"got", cfg.Version, "expected", config.CurrentVersion)
@@ -111,6 +123,7 @@ func Run(injector inject.Injector) error {
 		Config:     cfg,
 		SampleRate: audio.CaptureSampleRate,
 		Log:        log,
+		Vocabulary: vocabulary,
 	}
 
 	mgr := hotkey.NewManager(time.Duration(cfg.ToggleMaxSeconds) * time.Second)
