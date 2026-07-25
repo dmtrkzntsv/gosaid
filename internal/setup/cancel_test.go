@@ -3,9 +3,11 @@ package setup
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"charm.land/huh/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 )
@@ -81,6 +83,40 @@ func TestListHeightLeavesRoomForChrome(t *testing.T) {
 	// The cap must still be usable, not collapse back to a sliver.
 	if got := listHeight(200); got < 8 {
 		t.Errorf("listHeight(200) = %d, too small to browse", got)
+	}
+}
+
+func TestOptionSelectLeavesOneBlankLineBeforeOptions(t *testing.T) {
+	opts := []huh.Option[string]{huh.NewOption("First option", "first")}
+	tests := []struct {
+		name        string
+		description string
+		wantPrefix  string
+	}{
+		{
+			name:        "after description",
+			description: "Helpful text.",
+			wantPrefix:  "Header\nHelpful text.\n\n",
+		},
+		{
+			name:       "after header when there is no description",
+			wantPrefix: "Header\n\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value := ""
+			sel := optionSelect("Header", tt.description, opts, &value)
+			sel.WithWidth(80)
+			lines := strings.Split(ansi.Strip(sel.View()), "\n")
+			for i := range lines {
+				lines[i] = strings.TrimSpace(lines[i])
+			}
+			view := strings.Join(lines, "\n")
+			if !strings.HasPrefix(view, tt.wantPrefix) {
+				t.Fatalf("view = %q, want prefix %q", view, tt.wantPrefix)
+			}
+		})
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"charm.land/huh/v2"
 	"golang.org/x/term"
@@ -91,12 +92,12 @@ func chooseEntry(s *Session) (prefill *HotkeyAnswers, fresh bool, err error) {
 		huh.NewOption("No", "no"),
 	}
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("A config already exists. Start from scratch?").
-			Description("Yes clears it (including cloud providers). No lets you edit or add a hotkey.").
-			Options(scratchOpts...).
-			Height(listHeight(len(scratchOpts))).
-			Value(&scratch),
+		optionSelect(
+			"A config already exists. Start from scratch?",
+			"Yes clears it (including cloud providers). No lets you edit or add a hotkey.",
+			scratchOpts,
+			&scratch,
+		),
 	)).Run(); err != nil {
 		return nil, false, cancelable(err)
 	}
@@ -120,8 +121,7 @@ func chooseEntry(s *Session) (prefill *HotkeyAnswers, fresh bool, err error) {
 	opts = append(opts, huh.NewOption("+ Add a new hotkey", pickAddNew))
 	choice := ""
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Which hotkey?").Options(opts...).
-			Height(listHeight(len(opts))).Value(&choice),
+		optionSelect("Which hotkey?", "", opts, &choice),
 	)).Run(); err != nil {
 		return nil, false, cancelable(err)
 	}
@@ -196,7 +196,7 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 			return err
 		}
 	}
-	if a.Compose, err = askYesNo("Enable compose (rewrite to order)?", "", a.Compose); err != nil {
+	if a.Compose, err = askYesNo("Enable compose (say what to do)?", "", a.Compose); err != nil {
 		return err
 	}
 	if a.Compose {
@@ -245,6 +245,27 @@ func listHeight(options int) int {
 	return h
 }
 
+// optionSelect builds a consistently spaced options screen. When explanatory
+// text is present it sits directly below the header, followed by one blank
+// line; otherwise the blank line follows the header itself.
+func optionSelect[T comparable](
+	title, description string,
+	options []huh.Option[T],
+	value *T,
+) *huh.Select[T] {
+	if description == "" {
+		title = strings.TrimRight(title, "\n") + "\n"
+	} else {
+		description = strings.TrimRight(description, "\n") + "\n"
+	}
+	return huh.NewSelect[T]().
+		Title(title).
+		Description(description).
+		Options(options...).
+		Height(listHeight(len(options) + 1)).
+		Value(value)
+}
+
 // cancelable converts a form's user-abort into errCancelStep. Wrap every
 // prompt that sits inside a manager loop so Esc backs out one level instead
 // of quitting setup.
@@ -285,11 +306,7 @@ func confirmSaveAfterError() bool {
 		huh.NewOption("No", "no"),
 	}
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Save the changes made so far?").
-			Options(opts...).
-			Height(listHeight(len(opts))).
-			Value(&save),
+		optionSelect("Save the changes made so far?", "", opts, &save),
 	)).Run(); err != nil {
 		return false
 	}
@@ -314,11 +331,7 @@ func confirmDiscardOnAbort(s *Session, err error) (bool, error) {
 		huh.NewOption("Save them", "save"),
 	}
 	cerr := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Discard unsaved changes?").
-			Options(opts...).
-			Height(listHeight(len(opts))).
-			Value(&choice),
+		optionSelect("Discard unsaved changes?", "", opts, &choice),
 	)).Run()
 	if cerr != nil {
 		return true, nil // second abort: discard

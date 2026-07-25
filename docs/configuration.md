@@ -83,7 +83,7 @@ Per binding:
 | `microphone` | Optional per-hotkey input device, matched as a case-insensitive substring of the device name. Overrides the global `microphone`. If the device isn't connected when recording starts, GoSaid falls back to the system default and logs a warning rather than failing the dictation |
 | `transcribe` / `enhance` / `compose` / `translate` | The pipeline stages — see below |
 
-The wizard lists the connected devices when it asks for a microphone, which is the easiest way to see the exact names.
+Run `gosaid mic` to choose the global default from an interactive list. The current setting is preselected and the system default device is labeled.
 
 ### Pipeline stages
 

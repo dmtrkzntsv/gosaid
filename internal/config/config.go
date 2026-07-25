@@ -63,7 +63,7 @@ type Hotkey struct {
 	Mode HotkeyMode `json:"mode,omitempty"`
 	// Microphone selects the input device for this hotkey by name —
 	// a case-insensitive substring match (pick devices interactively with
-	// `gosaid setup mic`). Empty falls back to the global Microphone
+	// `gosaid mic`). Empty falls back to the global Microphone
 	// setting, then the system default. If the device is absent when
 	// recording starts, capture falls back to the default (logged).
 	Microphone string          `json:"microphone,omitempty"`

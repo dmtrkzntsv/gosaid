@@ -50,12 +50,7 @@ func installModel(s *Session, kind, driver, endpointID, title, desc string) (str
 
 	choice := ""
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title(title).
-			Description(desc).
-			Options(opts...).
-			Height(listHeight(len(opts))).
-			Value(&choice),
+		optionSelect(title, desc, opts, &choice),
 	)).Run(); err != nil {
 		return "", cancelable(err)
 	}

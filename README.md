@@ -63,6 +63,12 @@ Custom vocabulary — names, products, jargon that transcription keeps getting w
 gosaid vocab Kubernetes          # add a word (--delete to remove, no args to list)
 ```
 
+To choose the default input device from an interactive list:
+
+```bash
+gosaid mic
+```
+
 See **[docs/configuration.md](docs/configuration.md)** for the full reference.
 
 ## License

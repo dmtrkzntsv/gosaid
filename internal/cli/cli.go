@@ -26,6 +26,8 @@ func Dispatch(version string, args []string) int {
 		return 0
 	case "model":
 		return RunModel(args[1:])
+	case "mic":
+		return RunMic(args[1:])
 	case "vocab":
 		return RunVocab(args[1:])
 	case "setup":
@@ -51,12 +53,13 @@ usage:
   gosaid setup     local setup wizard — transcription, a hotkey, optional local
                    chat stages. Edit config.json directly for cloud providers.
   gosaid config    open the config file in $EDITOR
-  gosaid model download <hf-repo> <file>
-                   download a model from Hugging Face and register it
+  gosaid mic       select the default microphone interactively
   gosaid vocab <word> [--delete]
                    add or remove a custom-vocabulary word (hinted to
                    transcription and the text stages so it's spelled right);
                    run with no word to list
+  gosaid model download <hf-repo> <file>
+                   download a model from Hugging Face and register it
   gosaid version   print version
   gosaid help      print this message`)
 }

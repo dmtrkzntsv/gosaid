@@ -2,9 +2,9 @@ package cli
 
 import "testing"
 
-func TestDispatchMicRemoved(t *testing.T) {
-	if code := Dispatch("test", []string{"mic", "list"}); code != 2 {
-		t.Fatalf("gosaid mic must be an unknown command now, exit = %d", code)
+func TestDispatchMic(t *testing.T) {
+	if code := Dispatch("test", []string{"mic", "--help"}); code != 0 {
+		t.Fatalf("gosaid mic help exit = %d, want 0", code)
 	}
 }
 

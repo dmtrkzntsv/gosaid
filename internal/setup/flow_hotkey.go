@@ -13,62 +13,84 @@ import (
 
 const pickTypeOwn = "\x00type-own"
 
-// askCombo picks a key combo for a NEW hotkey: the curated list minus
-// already-bound combos, or free text validated by the hotkey parser. The edit
-// path never calls this — an existing hotkey's combo is fixed.
+const customShortcutHelp = `Use at least one modifier and one key.
+Modifiers: ctrl · shift · alt/option · cmd/win
+Keys:
+  a–z · 0–9 · f1–f12
+  left · right · up · down
+  space · tab · enter · esc`
+
+// askCombo picks a key combo for a NEW hotkey. Configured suggestions remain
+// visible and marked, but validation prevents selecting them. The edit path
+// never calls this — an existing hotkey's combo is fixed.
 func askCombo(s *Session) (string, error) {
-	var opts []huh.Option[string]
-	for _, c := range SuggestedCombos {
-		if _, bound := s.Cfg.Hotkeys[c]; !bound {
-			opts = append(opts, huh.NewOption(c, c))
-		}
-	}
-	opts = append(opts,
-		huh.NewOption("Type your own…", pickTypeOwn),
-		huh.NewOption("← Back", pickBack),
-	)
-	choice := ""
-	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Shortcut").Options(opts...).
-			Height(listHeight(len(opts))).Value(&choice),
-	)).Run(); err != nil {
-		return "", cancelable(err)
-	}
-	if choice == pickBack {
-		return "", errCancelStep
-	}
-	if choice != pickTypeOwn {
-		return choice, nil
-	}
-	combo := ""
-	var lockingSeen *hotkey.LockingKeyError
-	if err := huh.NewForm(huh.NewGroup(
-		huh.NewInput().Title("Shortcut").
-			Description("Esc goes back.").
-			Placeholder("ctrl+alt+space").
-			Validate(func(v string) error {
-				v = strings.ToLower(strings.TrimSpace(v))
-				if _, _, err := hotkey.Parse(v); err != nil {
-					var locking *hotkey.LockingKeyError
-					if errors.As(err, &locking) {
-						lockingSeen = locking
-						return errors.New(locking.Short())
-					}
-					return err
-				}
-				if _, bound := s.Cfg.Hotkeys[v]; bound {
-					return fmt.Errorf("%q is already bound", v)
+	for {
+		opts := shortcutOptions(s.Cfg.Hotkeys)
+		choice := ""
+		sel := optionSelect("Shortcut", "", opts, &choice).
+			Validate(func(combo string) error {
+				if _, configured := s.Cfg.Hotkeys[combo]; configured {
+					return fmt.Errorf("%s is already configured", combo)
 				}
 				return nil
-			}).
-			Value(&combo),
-	)).Run(); err != nil {
-		if lockingSeen != nil {
-			fmt.Println(lockingSeen.Error())
+			})
+		if err := huh.NewForm(huh.NewGroup(sel)).Run(); err != nil {
+			return "", cancelable(err)
 		}
-		return "", cancelable(err)
+		switch choice {
+		case pickTypeOwn:
+			combo, canceled, err := askCustomShortcut(s.Cfg.Hotkeys)
+			if err != nil {
+				return "", err
+			}
+			if canceled {
+				continue
+			}
+			return combo, nil
+		default:
+			return choice, nil
+		}
 	}
-	return strings.ToLower(strings.TrimSpace(combo)), nil
+}
+
+// askCustomShortcut collects a custom key combination. The explicit Cancel
+// button returns canceled=true so askCombo can re-open its suggested list.
+func askCustomShortcut(configured map[string]config.Hotkey) (string, bool, error) {
+	combo := ""
+	validationMessage := ""
+	for {
+		description := customShortcutHelp + "\n"
+		if validationMessage != "" {
+			description += "\n" + validationMessage
+		}
+		field := newShortcutInput(&combo, description)
+		if err := huh.NewForm(huh.NewGroup(field)).Run(); err != nil {
+			return "", false, cancelable(err)
+		}
+		if field.canceled {
+			return "", true, nil
+		}
+		normalized, err := validateCustomShortcut(configured, combo)
+		if err == nil {
+			return normalized, false, nil
+		}
+		validationMessage = err.Error()
+	}
+}
+
+func validateCustomShortcut(configured map[string]config.Hotkey, raw string) (string, error) {
+	combo := strings.ToLower(strings.TrimSpace(raw))
+	if _, _, err := hotkey.Parse(combo); err != nil {
+		var locking *hotkey.LockingKeyError
+		if errors.As(err, &locking) {
+			return "", errors.New(locking.Short())
+		}
+		return "", err
+	}
+	if _, bound := configured[combo]; bound {
+		return "", fmt.Errorf("%q is already bound", combo)
+	}
+	return combo, nil
 }
 
 // askMode picks hold vs toggle.
@@ -77,16 +99,18 @@ func askMode(current string) (string, error) {
 		current = string(config.ModeHold)
 	}
 	choice := current
+	opts := []huh.Option[string]{
+		huh.NewOption("Hold (push-to-talk)", string(config.ModeHold)),
+		huh.NewOption("Toggle", string(config.ModeToggle)),
+		huh.NewOption("← Back", pickBack),
+	}
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Mode").
-			Description("Hold: record while pressed. Toggle: press to start, press to stop.").
-			Options(
-				huh.NewOption("Hold (push-to-talk)", string(config.ModeHold)),
-				huh.NewOption("Toggle", string(config.ModeToggle)),
-				huh.NewOption("← Back", pickBack),
-			).
-			Height(listHeight(3)).
-			Value(&choice),
+		optionSelect(
+			"Mode",
+			"Hold: record while pressed. Toggle: press to start, press to stop.",
+			opts,
+			&choice,
+		),
 	)).Run(); err != nil {
 		return "", cancelable(err)
 	}
@@ -109,11 +133,7 @@ func askYesNo(title, desc string, current bool) (bool, error) {
 		huh.NewOption("No", "no"),
 		huh.NewOption("← Back", pickBack),
 	}
-	sel := huh.NewSelect[string]().Title(title).Options(opts...).
-		Height(listHeight(len(opts))).Value(&choice)
-	if desc != "" {
-		sel = sel.Description(desc)
-	}
+	sel := optionSelect(title, desc, opts, &choice)
 	if err := huh.NewForm(huh.NewGroup(sel)).Run(); err != nil {
 		return false, cancelable(err)
 	}
@@ -133,8 +153,7 @@ func askTargetLanguage(current string) (string, error) {
 	opts = append(opts, huh.NewOption("← Back", pickBack))
 	choice := current
 	if err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().Title("Translate to").Options(opts...).
-			Height(listHeight(len(opts))).Value(&choice),
+		optionSelect("Translate to", "", opts, &choice),
 	)).Run(); err != nil {
 		return "", cancelable(err)
 	}

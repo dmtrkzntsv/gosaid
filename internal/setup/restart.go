@@ -68,11 +68,7 @@ func offerRestart() {
 		huh.NewOption("No", "no"),
 	}
 	err := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Restart the daemon to apply changes?").
-			Options(opts...).
-			Height(listHeight(len(opts))).
-			Value(&restart),
+		optionSelect("Restart the daemon to apply changes?", "", opts, &restart),
 	)).Run()
 	if err != nil || restart != "yes" {
 		fmt.Println("Restart the daemon later to apply changes:\n  " + restartHint())
