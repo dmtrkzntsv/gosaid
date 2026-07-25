@@ -6,14 +6,15 @@ import (
 	"text/template"
 )
 
-//go:embed prompts/translate.tmpl prompts/enhance.tmpl prompts/compose.tmpl prompts/transform.tmpl
+//go:embed prompts/translate.tmpl prompts/enhance.tmpl prompts/compose.tmpl prompts/transform.tmpl prompts/transform_request.tmpl
 var promptFS embed.FS
 
 var (
-	translateTmpl = template.Must(template.ParseFS(promptFS, "prompts/translate.tmpl"))
-	enhanceTmpl   = template.Must(template.ParseFS(promptFS, "prompts/enhance.tmpl"))
-	composeTmpl   = template.Must(template.ParseFS(promptFS, "prompts/compose.tmpl"))
-	transformTmpl = template.Must(template.ParseFS(promptFS, "prompts/transform.tmpl"))
+	translateTmpl        = template.Must(template.ParseFS(promptFS, "prompts/translate.tmpl"))
+	enhanceTmpl          = template.Must(template.ParseFS(promptFS, "prompts/enhance.tmpl"))
+	composeTmpl          = template.Must(template.ParseFS(promptFS, "prompts/compose.tmpl"))
+	transformTmpl        = template.Must(template.ParseFS(promptFS, "prompts/transform.tmpl"))
+	transformRequestTmpl = template.Must(template.ParseFS(promptFS, "prompts/transform_request.tmpl"))
 )
 
 type TranslateData struct {
@@ -36,11 +37,15 @@ type ComposeData struct {
 }
 
 type TransformData struct {
-	Selection    string
 	UserContext  string
 	Instructions string
 	// Vocabulary is the user's personal dictionary as a comma-separated hint.
 	Vocabulary string
+}
+
+type TransformRequestData struct {
+	Selection   string
+	Instruction string
 }
 
 func RenderTranslate(d TranslateData) (string, error) {
@@ -78,6 +83,15 @@ func RenderTransform(d TransformData) (string, error) {
 	d.Vocabulary = strings.TrimSpace(d.Vocabulary)
 	var b strings.Builder
 	if err := transformTmpl.Execute(&b, d); err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func RenderTransformRequest(d TransformRequestData) (string, error) {
+	d.Instruction = strings.TrimSpace(d.Instruction)
+	var b strings.Builder
+	if err := transformRequestTmpl.Execute(&b, d); err != nil {
 		return "", err
 	}
 	return b.String(), nil

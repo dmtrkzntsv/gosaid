@@ -1,6 +1,7 @@
 package inject
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -21,6 +22,12 @@ type PasteInjector struct {
 	inited bool
 }
 
+// CGEventPost and the equivalent platform helpers only enqueue the paste
+// keystroke. Some applications do not read the clipboard until their event
+// loop handles it, so restoring too quickly can make them paste the previous
+// clipboard value instead of the generated text.
+const pasteRestoreDelay = 750 * time.Millisecond
+
 // NewPasteInjector returns a platform-aware injector. Returns an error if
 // the clipboard backend fails to initialize.
 func NewPasteInjector() (*PasteInjector, error) {
@@ -36,20 +43,32 @@ func (p *PasteInjector) Inject(ctx context.Context, text string) error {
 	if text == "" {
 		return nil
 	}
-	prev := clipboard.Read(clipboard.FmtText)
-	clipboard.Write(clipboard.FmtText, []byte(text))
+	return injectPaste(ctx, osClipboard{}, synthesizePaste, text, pasteRestoreDelay)
+}
 
-	if err := synthesizePaste(); err != nil {
+func injectPaste(ctx context.Context, clip clipboardAPI, synth func() error, text string, restoreDelay time.Duration) error {
+	prev := clip.ReadText()
+	injected := []byte(text)
+	clip.WriteText(injected)
+
+	if err := synth(); err != nil {
 		return &InjectionFailedError{TextInClipboard: true, Underlying: err}
 	}
-	// Give the target app time to consume the paste before we restore the
-	// clipboard — otherwise slow/async apps paste the restored value.
+
+	timer := time.NewTimer(restoreDelay)
+	defer timer.Stop()
 	select {
-	case <-time.After(100 * time.Millisecond):
+	case <-timer.C:
 	case <-ctx.Done():
+		// The paste event may still be queued. Leave the generated text in the
+		// clipboard so a late consumer cannot receive the previous contents.
+		return nil
 	}
-	if prev != nil {
-		clipboard.Write(clipboard.FmtText, prev)
+
+	// Do not overwrite a copy made by the user (or another application) while
+	// waiting for the target to consume the paste.
+	if prev != nil && bytes.Equal(clip.ReadText(), injected) {
+		clip.WriteText(prev)
 	}
 	return nil
 }

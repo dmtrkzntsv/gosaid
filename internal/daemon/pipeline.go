@@ -259,7 +259,6 @@ func (p *Pipeline) transform(ctx context.Context, instruction, selection string,
 		return "", err
 	}
 	system, err := RenderTransform(TransformData{
-		Selection:    selection,
 		UserContext:  p.Config.UserContext,
 		Instructions: stage.Instructions,
 		Vocabulary:   p.Vocabulary,
@@ -267,7 +266,14 @@ func (p *Pipeline) transform(ctx context.Context, instruction, selection string,
 	if err != nil {
 		return "", err
 	}
-	out, err := drv.Chat(ctx, model, system, instruction)
+	request, err := RenderTransformRequest(TransformRequestData{
+		Selection:   selection,
+		Instruction: instruction,
+	})
+	if err != nil {
+		return "", err
+	}
+	out, err := drv.Chat(ctx, model, system, request)
 	if err != nil {
 		return "", err
 	}

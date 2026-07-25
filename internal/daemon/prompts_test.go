@@ -124,7 +124,7 @@ func TestRenderVocabulary_AllStages(t *testing.T) {
 			return RenderCompose(ComposeData{Vocabulary: vocab})
 		},
 		"transform": func() (string, error) {
-			return RenderTransform(TransformData{Selection: "hi", Vocabulary: vocab})
+			return RenderTransform(TransformData{Vocabulary: vocab})
 		},
 	}
 	for name, render := range renderers {

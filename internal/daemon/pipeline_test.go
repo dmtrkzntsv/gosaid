@@ -487,14 +487,17 @@ func TestComposeWithSelectionUsesTransformPrompt(t *testing.T) {
 	if err := p.Run(context.Background(), cfg.Hotkeys["ctrl+alt+space"], sel); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if !strings.Contains(gotSystem, "hey buddy") {
-		t.Fatalf("system prompt must embed the selection, got:\n%s", gotSystem)
+	if strings.Contains(gotSystem, "hey buddy") {
+		t.Fatalf("system prompt must not embed the selection, got:\n%s", gotSystem)
 	}
 	if !strings.Contains(gotSystem, "rewrites an existing piece of text") {
 		t.Fatalf("expected transform prompt, got:\n%s", gotSystem)
 	}
-	if gotUser != "make it formal" {
-		t.Fatalf("user message must be the transcript, got %q", gotUser)
+	if !strings.Contains(gotUser, "<selected_text>\nhey buddy\n</selected_text>") {
+		t.Fatalf("user message must contain the selected text, got:\n%s", gotUser)
+	}
+	if !strings.Contains(gotUser, "<instruction>\nmake it formal\n</instruction>") {
+		t.Fatalf("user message must contain the transcript as the instruction, got:\n%s", gotUser)
 	}
 	if sink.String() != "Formal text." {
 		t.Fatalf("injected %q", sink.String())
