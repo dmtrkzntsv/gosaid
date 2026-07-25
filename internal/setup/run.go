@@ -16,7 +16,7 @@ import (
 // osRemove is a seam for tests; production uses os.Remove.
 var osRemove = os.Remove
 
-const setupUsage = "usage: gosaid setup   (local setup wizard; edit config.json for cloud providers)"
+const setupUsage = "usage: gosaid setup   (local setup wizard; use gosaid driver for cloud providers)"
 
 // Run is the `gosaid setup` entry point: a single local-only wizard. Any
 // argument is rejected — there are no sub-topics.

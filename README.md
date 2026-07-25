@@ -49,9 +49,21 @@ A compose hotkey also edits text you already have: select something in any app, 
 
 The one choice worth thinking about is `enhance` vs `compose`: enhance keeps what you said and cleans it up, compose throws away your wording and writes something new from it. Most hotkeys want enhance (plus translate); a "write this for me" hotkey wants compose.
 
-## Manual configuration
+## Drivers and manual configuration
 
-The wizard is local-only and does one hotkey at a time. Everything else — cloud providers, several hotkeys with different models, per-hotkey microphones, mixed local/hosted pipelines, memory tuning — is a direct edit:
+The wizard is local-only and does one hotkey at a time. Add or update hosted
+providers with the driver manager:
+
+```bash
+gosaid driver
+```
+
+It includes presets for OpenAI and OpenRouter, plus any OpenAI-compatible API.
+The manager shows every configured driver, lets you select a hosted driver to
+configure or delete it, and includes **Add a new driver**.
+
+Several hotkeys with different models, per-hotkey microphones, mixed
+local/hosted pipelines, and memory tuning remain available in the full config:
 
 ```bash
 gosaid config

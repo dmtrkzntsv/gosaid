@@ -8,6 +8,12 @@ func TestDispatchMic(t *testing.T) {
 	}
 }
 
+func TestDispatchDriverHelp(t *testing.T) {
+	if code := Dispatch("test", []string{"driver", "--help"}); code != 0 {
+		t.Fatalf("gosaid driver help exit = %d, want 0", code)
+	}
+}
+
 func TestDispatchSetupRejectsArgs(t *testing.T) {
 	// setup takes no arguments now — any arg is exit 2, before the TTY check.
 	if code := Dispatch("test", []string{"setup", "mic"}); code != 2 {

@@ -1,6 +1,9 @@
 # Manual configuration
 
-`gosaid setup` covers the common local-only case. Edit `config.json` directly when you want something it doesn't offer: cloud providers, several hotkeys sharing different models, per-hotkey microphones, or mixed local/hosted pipelines.
+`gosaid setup` covers the common local-only case. Use `gosaid driver` to list,
+add, or configure hosted model providers. Edit `config.json` directly when you
+want several hotkeys sharing different models, per-hotkey microphones, or
+mixed local/hosted pipelines.
 
 ```bash
 gosaid config
@@ -25,6 +28,26 @@ A list of drivers, each with named endpoints. Models are referenced everywhere e
 - **`openai_compatible`** — any hosted OpenAI-compatible API. Needs `api_base` and `api_key`. Works with OpenAI, Groq, OpenRouter, DeepSeek, Together, and others — swap the base URL. Add several endpoints to mix providers.
 
 Local endpoints also take `unload_after_seconds`: an idle model is freed after that many seconds and reloads on the next dictation. Omit it (or use `0`) to keep models resident once loaded.
+
+### Managing hosted drivers
+
+The single driver command opens an interactive manager:
+
+```bash
+gosaid driver
+```
+
+It shows all configured drivers. Select a hosted driver to update its API base
+URL or key, delete any configured driver, or choose **Add a new driver** and
+pick OpenAI, OpenRouter, or OpenAI-compatible. Deletion asks for confirmation
+and warns when a hotkey still references the driver; downloaded local model
+files are not removed. The presets fill in the standard endpoint ID and API
+base; the cursor goes directly to their API-key field. A compatible custom API
+asks for its endpoint ID and base URL first.
+
+The list shows local `whisper_cpp` and `llama_cpp` endpoints too. Their model
+registrations continue to be managed by `gosaid setup` and
+`gosaid model download`.
 
 ```json
 "drivers": [

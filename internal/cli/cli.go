@@ -26,6 +26,8 @@ func Dispatch(version string, args []string) int {
 		return 0
 	case "model":
 		return RunModel(args[1:])
+	case "driver":
+		return RunDriver(args[1:])
 	case "mic":
 		return RunMic(args[1:])
 	case "vocab":
@@ -51,8 +53,9 @@ func Usage() {
 usage:
   gosaid           run the daemon
   gosaid setup     local setup wizard — transcription, a hotkey, optional local
-                   chat stages. Edit config.json directly for cloud providers.
+                   chat stages. Use "gosaid driver" for cloud providers.
   gosaid config    open the config file in $EDITOR
+  gosaid driver    manage model providers interactively
   gosaid mic       select the default microphone interactively
   gosaid vocab <word> [--delete]
                    add or remove a custom-vocabulary word (hinted to
