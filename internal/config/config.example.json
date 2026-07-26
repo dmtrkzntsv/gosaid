@@ -8,7 +8,9 @@
           "id": "openai",
           "config": {
             "api_base": "https://api.openai.com/v1",
-            "api_key": "REPLACE_ME"
+            "api_key": "REPLACE_ME",
+            "transcribe_model": "whisper-1",
+            "chat_model": "gpt-5.4-nano"
           }
         }
       ]

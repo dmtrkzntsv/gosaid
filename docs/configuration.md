@@ -42,8 +42,21 @@ URL or key, delete any configured driver, or choose **Add a new driver** and
 pick OpenAI, OpenRouter, or OpenAI-compatible. Deletion asks for confirmation
 and warns when a hotkey still references the driver; downloaded local model
 files are not removed. The presets fill in the standard endpoint ID and API
-base; the cursor goes directly to their API-key field. A compatible custom API
-asks for its endpoint ID and base URL first.
+base; the cursor goes directly to their API-key field. The next screen asks
+for the remote model names, prefilled with provider defaults. A compatible
+custom API asks for its endpoint ID, base URL, and transcription/chat model
+names directly. At least one model is required.
+
+Adding the driver makes a small live request to each named model: a short
+silent audio transcription for STT and a minimal completion for chat. This
+checks the API key, model name, endpoint path, and actual capability before the
+driver is saved. Configuring an existing remote driver reruns the same checks.
+These requests may appear in the provider's usage accounting.
+
+During `gosaid setup`, a single compatible STT or LLM endpoint is selected
+automatically, whether it is local or hosted. If more than one endpoint can run
+that kind of model, setup shows a model picker. One selected LLM model backs
+enhance, translate, and compose for the new hotkey.
 
 The list shows local `whisper_cpp` and `llama_cpp` endpoints too. Their model
 registrations continue to be managed by `gosaid setup` and
@@ -74,7 +87,12 @@ registrations continue to be managed by `gosaid setup` and
     "driver": "openai_compatible",
     "endpoints": [{
       "id": "openai",
-      "config": { "api_base": "https://api.openai.com/v1", "api_key": "sk-..." }
+      "config": {
+        "api_base": "https://api.openai.com/v1",
+        "api_key": "sk-...",
+        "transcribe_model": "whisper-1",
+        "chat_model": "gpt-5.4-nano"
+      }
     }]
   }
 ]

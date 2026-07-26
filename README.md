@@ -62,6 +62,15 @@ It includes presets for OpenAI and OpenRouter, plus any OpenAI-compatible API.
 The manager shows every configured driver, lets you select a hosted driver to
 configure or delete it, and includes **Add a new driver**.
 
+When adding a remote driver, enter or accept its transcription and chat model
+names. `gosaid` makes a small live request to every configured model and saves
+the driver only after those capability checks succeed.
+
+When setup sees one configured speech-to-text or LLM driver, it uses that
+driver automatically. With multiple compatible drivers, setup asks which
+model the hotkey should use. The selected LLM model is shared by that hotkey's
+enhance, translate, and compose stages.
+
 Several hotkeys with different models, per-hotkey microphones, mixed
 local/hosted pipelines, and memory tuning remain available in the full config:
 

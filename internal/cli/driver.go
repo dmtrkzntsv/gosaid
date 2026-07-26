@@ -1,17 +1,20 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"golang.org/x/term"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
+	"github.com/dmtrkzntsv/gosaid/internal/drivers"
 )
 
 const driverUsage = `usage: gosaid driver
@@ -32,13 +35,13 @@ var hostedDriverPresets = []hostedDriverPreset{
 		Key:     "openai",
 		Label:   "OpenAI",
 		ID:      "openai",
-		APIBase: "https://api.openai.com/v1",
+		APIBase: config.OpenAIAPIBase,
 	},
 	{
 		Key:     "openrouter",
 		Label:   "OpenRouter",
 		ID:      "openrouter",
-		APIBase: "https://openrouter.ai/api/v1",
+		APIBase: config.OpenRouterAPIBase,
 	},
 	{
 		Key:   "openai-compat",
@@ -102,14 +105,17 @@ func addHostedEndpoint(cfg *config.Config, id, apiBase, apiKey string) error {
 	if err := validateHostedEndpoint(cfg, id, apiBase, apiKey, ""); err != nil {
 		return err
 	}
+	defaults, _ := config.DetectHostedProvider(apiBase)
 
 	for i := range cfg.Drivers {
 		if cfg.Drivers[i].Driver == config.DriverOpenAICompatible {
 			cfg.Drivers[i].Endpoints = append(cfg.Drivers[i].Endpoints, config.Endpoint{
 				ID: id,
 				Config: config.EndpointConfig{
-					APIBase: apiBase,
-					APIKey:  apiKey,
+					APIBase:         apiBase,
+					APIKey:          apiKey,
+					TranscribeModel: defaults.TranscribeModel,
+					ChatModel:       defaults.ChatModel,
 				},
 			})
 			return validateDriverTopology(cfg)
@@ -120,8 +126,10 @@ func addHostedEndpoint(cfg *config.Config, id, apiBase, apiKey string) error {
 		Endpoints: []config.Endpoint{{
 			ID: id,
 			Config: config.EndpointConfig{
-				APIBase: apiBase,
-				APIKey:  apiKey,
+				APIBase:         apiBase,
+				APIKey:          apiKey,
+				TranscribeModel: defaults.TranscribeModel,
+				ChatModel:       defaults.ChatModel,
 			},
 		}},
 	})
@@ -143,6 +151,14 @@ func configureHostedEndpoint(cfg *config.Config, id, apiBase, apiKey string) err
 	}
 	endpoint.Config.APIBase = apiBase
 	endpoint.Config.APIKey = apiKey
+	if defaults, ok := config.DetectHostedProvider(apiBase); ok {
+		if endpoint.Config.TranscribeModel == "" {
+			endpoint.Config.TranscribeModel = defaults.TranscribeModel
+		}
+		if endpoint.Config.ChatModel == "" {
+			endpoint.Config.ChatModel = defaults.ChatModel
+		}
+	}
 	return validateDriverTopology(cfg)
 }
 
@@ -242,15 +258,10 @@ func configuredDrivers(cfg *config.Config) []listedDriver {
 }
 
 func hostedProviderLabel(apiBase string) string {
-	normalized := strings.TrimRight(strings.TrimSpace(apiBase), "/")
-	switch normalized {
-	case "https://api.openai.com/v1":
-		return "OpenAI"
-	case "https://openrouter.ai/api/v1":
-		return "OpenRouter"
-	default:
-		return "OpenAI-compatible"
+	if defaults, ok := config.DetectHostedProvider(apiBase); ok {
+		return defaults.Label
 	}
+	return "OpenAI-compatible"
 }
 
 func modelCountLabel(n int) string {
@@ -512,21 +523,37 @@ func interactiveAddDriver(cfg *config.Config) error {
 		if !submitted {
 			return huh.ErrUserAborted
 		}
-		return addHostedEndpoint(cfg, id, apiBase, apiKey)
+		defaults, _ := config.DetectHostedProvider(apiBase)
+		transcribeModel, chatModel, err := interactiveHostedModels(apiBase, apiKey, defaults)
+		if err != nil {
+			return err
+		}
+		if err := addHostedEndpoint(cfg, id, apiBase, apiKey); err != nil {
+			return err
+		}
+		endpoint, _ := findEndpoint(cfg, id)
+		endpoint.Config.TranscribeModel = transcribeModel
+		endpoint.Config.ChatModel = chatModel
+		return nil
 	}
 
+	transcribeModel, chatModel := "", ""
 	validate := func(string) error {
-		return validateHostedEndpoint(
+		if err := validateHostedEndpoint(
 			cfg,
 			strings.TrimSpace(id),
 			strings.TrimSpace(apiBase),
 			strings.TrimSpace(apiKey),
 			"",
-		)
+		); err != nil {
+			return err
+		}
+		return testHostedModels(apiBase, apiKey, transcribeModel, chatModel)
 	}
 	apiKeyInput := &submitDriverInput{
 		Input: huh.NewInput().
 			Title("API key").
+			Description("Enter makes a small live request to each configured model.").
 			EchoMode(huh.EchoModePassword).
 			Value(&apiKey).
 			Validate(validate),
@@ -542,6 +569,14 @@ func interactiveAddDriver(cfg *config.Config) error {
 			Title("API base URL").
 			Placeholder("https://api.example.com/v1").
 			Value(&apiBase),
+		huh.NewInput().
+			Title("Transcription model (optional)").
+			Description("Model name used for speech-to-text.").
+			Value(&transcribeModel),
+		huh.NewInput().
+			Title("Chat model (optional)").
+			Description("Model name used for enhance, translate and compose.").
+			Value(&chatModel),
 		apiKeyInput,
 		newDriverBackSelect(&backChoice),
 	)).
@@ -553,12 +588,120 @@ func interactiveAddDriver(cfg *config.Config) error {
 	if !submitted {
 		return huh.ErrUserAborted
 	}
-	return addHostedEndpoint(cfg, id, apiBase, apiKey)
+	if err := addHostedEndpoint(cfg, id, apiBase, apiKey); err != nil {
+		return err
+	}
+	endpoint, _ := findEndpoint(cfg, strings.TrimSpace(id))
+	endpoint.Config.TranscribeModel = strings.TrimSpace(transcribeModel)
+	endpoint.Config.ChatModel = strings.TrimSpace(chatModel)
+	return nil
 }
 
-// submitDriverInput distinguishes Enter from Down on the final credential
-// field. Enter validates and submits; Down moves to the visible Back option
-// without running required-field validation.
+func interactiveHostedModels(
+	apiBase, apiKey string,
+	defaults config.HostedProviderDefaults,
+) (string, string, error) {
+	transcribeModel := defaults.TranscribeModel
+	chatModel := defaults.ChatModel
+	submitted := false
+	backChoice := "back"
+	validate := func(string) error {
+		return testHostedModels(apiBase, apiKey, transcribeModel, chatModel)
+	}
+
+	var fields []huh.Field
+	if defaults.TranscribeModel != "" {
+		fields = append(fields, huh.NewInput().
+			Title("Transcription model (optional)").
+			Description("Used for speech-to-text. Leave empty if this provider is LLM-only.").
+			Value(&transcribeModel))
+	}
+	fields = append(fields,
+		&submitDriverInput{
+			Input: huh.NewInput().
+				Title("Chat model (optional)").
+				Description("Enter makes small live test requests, then adds the driver.").
+				Value(&chatModel).
+				Validate(validate),
+			submitted: &submitted,
+			validate:  validate,
+		},
+		newDriverBackSelect(&backChoice),
+	)
+	form := huh.NewForm(huh.NewGroup(fields...)).
+		WithKeyMap(driverFormKeyMap()).
+		WithTheme(huh.ThemeFunc(driverCredentialTheme))
+	if err := form.Run(); err != nil {
+		return "", "", err
+	}
+	if !submitted {
+		return "", "", huh.ErrUserAborted
+	}
+	return strings.TrimSpace(transcribeModel), strings.TrimSpace(chatModel), nil
+}
+
+func testHostedModels(apiBase, apiKey, transcribeModel, chatModel string) error {
+	apiBase = strings.TrimSpace(apiBase)
+	apiKey = strings.TrimSpace(apiKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return testHostedModelsWithDriver(
+		ctx,
+		drivers.NewOpenAICompatible(apiBase, apiKey),
+		transcribeModel,
+		chatModel,
+	)
+}
+
+type hostedModelTester interface {
+	Transcribe(
+		context.Context,
+		[]float32,
+		int,
+		string,
+		drivers.TranscribeOptions,
+	) (drivers.TranscribeResult, error)
+	Chat(context.Context, string, string, string) (string, error)
+}
+
+func testHostedModelsWithDriver(
+	ctx context.Context,
+	driver hostedModelTester,
+	transcribeModel, chatModel string,
+) error {
+	transcribeModel = strings.TrimSpace(transcribeModel)
+	chatModel = strings.TrimSpace(chatModel)
+	if transcribeModel == "" && chatModel == "" {
+		return errors.New("provide at least one transcription or chat model")
+	}
+	if transcribeModel != "" {
+		const sampleRate = 16000
+		if _, err := driver.Transcribe(
+			ctx,
+			make([]float32, sampleRate),
+			sampleRate,
+			transcribeModel,
+			drivers.TranscribeOptions{},
+		); err != nil {
+			return fmt.Errorf("transcription model %q: %w", transcribeModel, err)
+		}
+	}
+	if chatModel != "" {
+		if _, err := driver.Chat(
+			ctx,
+			chatModel,
+			"Reply with exactly OK.",
+			"Connection test.",
+		); err != nil {
+			return fmt.Errorf("chat model %q: %w", chatModel, err)
+		}
+	}
+	return nil
+}
+
+// submitDriverInput distinguishes Enter from Down on the final input field.
+// Enter validates and submits; Down moves to the visible Back option without
+// running validation.
 type submitDriverInput struct {
 	*huh.Input
 	submitted            *bool
@@ -633,37 +776,82 @@ func driverFormKeyMap() *huh.KeyMap {
 func interactiveConfigureDriver(cfg *config.Config, id string) error {
 	endpoint, _ := findEndpoint(cfg, id)
 	apiBase, apiKey := endpoint.Config.APIBase, endpoint.Config.APIKey
+	transcribeModel, chatModel := endpoint.Config.TranscribeModel, endpoint.Config.ChatModel
 	if isPredefinedHostedAPIBase(apiBase) {
-		if err := huh.NewForm(huh.NewGroup(
+		defaults, _ := config.DetectHostedProvider(apiBase)
+		validate := func(string) error {
+			if err := validateHostedEndpoint(cfg, id, apiBase, apiKey, id); err != nil {
+				return err
+			}
+			return testHostedModels(apiBase, apiKey, transcribeModel, chatModel)
+		}
+		fields := []huh.Field{
 			huh.NewInput().
-				Title(hostedProviderLabel(apiBase)+" API key").
+				Title(hostedProviderLabel(apiBase) + " API key").
 				EchoMode(huh.EchoModePassword).
 				Value(&apiKey).
 				Validate(requireDriverValue("api key")),
+		}
+		if defaults.TranscribeModel != "" || transcribeModel != "" {
+			fields = append(fields, huh.NewInput().
+				Title("Transcription model (optional)").
+				Value(&transcribeModel))
+		}
+		fields = append(fields,
+			huh.NewInput().
+				Title("Chat model (optional)").
+				Value(&chatModel),
 			huh.NewInput().
 				Title("API base URL").
+				Description("Enter makes a small live request to each configured model.").
 				Value(&apiBase).
-				Validate(requireDriverValue("api base URL")),
-		)).Run(); err != nil {
+				Validate(validate),
+		)
+		if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
 			return err
 		}
-		return configureHostedEndpoint(cfg, id, apiBase, apiKey)
+		if err := configureHostedEndpoint(cfg, id, apiBase, apiKey); err != nil {
+			return err
+		}
+		endpoint, _ = findEndpoint(cfg, id)
+		endpoint.Config.TranscribeModel = strings.TrimSpace(transcribeModel)
+		endpoint.Config.ChatModel = strings.TrimSpace(chatModel)
+		return nil
 	}
 
+	validate := func(string) error {
+		if err := validateHostedEndpoint(cfg, id, apiBase, apiKey, id); err != nil {
+			return err
+		}
+		return testHostedModels(apiBase, apiKey, transcribeModel, chatModel)
+	}
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewInput().
 			Title("API base URL").
 			Value(&apiBase).
 			Validate(requireDriverValue("api base URL")),
 		huh.NewInput().
+			Title("Transcription model (optional)").
+			Value(&transcribeModel),
+		huh.NewInput().
+			Title("Chat model (optional)").
+			Value(&chatModel),
+		huh.NewInput().
 			Title("API key").
+			Description("Enter makes a small live request to each configured model.").
 			EchoMode(huh.EchoModePassword).
 			Value(&apiKey).
-			Validate(requireDriverValue("api key")),
+			Validate(validate),
 	)).Run(); err != nil {
 		return err
 	}
-	return configureHostedEndpoint(cfg, id, apiBase, apiKey)
+	if err := configureHostedEndpoint(cfg, id, apiBase, apiKey); err != nil {
+		return err
+	}
+	endpoint, _ = findEndpoint(cfg, id)
+	endpoint.Config.TranscribeModel = strings.TrimSpace(transcribeModel)
+	endpoint.Config.ChatModel = strings.TrimSpace(chatModel)
+	return nil
 }
 
 func isPredefinedHostedAPIBase(apiBase string) bool {

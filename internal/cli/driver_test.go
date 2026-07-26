@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
+	"github.com/dmtrkzntsv/gosaid/internal/drivers"
 )
 
 func driverFixture(t *testing.T) *config.Config {
@@ -50,6 +53,10 @@ func TestAddAndConfigureHostedEndpoint(t *testing.T) {
 	if endpoint.Config.APIBase != "https://openrouter.ai/api/v1" ||
 		endpoint.Config.APIKey != "router-secret" {
 		t.Fatalf("unexpected endpoint: %+v", endpoint)
+	}
+	if endpoint.Config.TranscribeModel != "" ||
+		endpoint.Config.ChatModel != "openai/gpt-5.4-nano" {
+		t.Fatalf("OpenRouter model defaults = %+v", endpoint.Config)
 	}
 
 	if err := configureHostedEndpoint(
@@ -330,6 +337,72 @@ func TestDriverCredentialThemeHighlightsBackOnlyWhenFocused(t *testing.T) {
 		if focused == blurred {
 			t.Errorf("dark=%v: focused Back color should differ from blurred color %v", isDark, blurred)
 		}
+	}
+}
+
+type fakeHostedModelTester struct {
+	gotTranscribeModel string
+	gotChatModel       string
+	transcribeErr      error
+	chatErr            error
+}
+
+func (f *fakeHostedModelTester) Transcribe(
+	_ context.Context,
+	_ []float32,
+	_ int,
+	model string,
+	_ drivers.TranscribeOptions,
+) (drivers.TranscribeResult, error) {
+	f.gotTranscribeModel = model
+	return drivers.TranscribeResult{}, f.transcribeErr
+}
+
+func (f *fakeHostedModelTester) Chat(
+	_ context.Context,
+	model, _, _ string,
+) (string, error) {
+	f.gotChatModel = model
+	return "OK", f.chatErr
+}
+
+func TestHostedModelsAreTestedBeforeAdd(t *testing.T) {
+	tester := &fakeHostedModelTester{}
+	if err := testHostedModelsWithDriver(
+		context.Background(),
+		tester,
+		"speech-model",
+		"chat-model",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if tester.gotTranscribeModel != "speech-model" || tester.gotChatModel != "chat-model" {
+		t.Fatalf(
+			"tested transcription=%q chat=%q",
+			tester.gotTranscribeModel,
+			tester.gotChatModel,
+		)
+	}
+}
+
+func TestHostedModelTestRejectsMissingOrFailingModels(t *testing.T) {
+	if err := testHostedModelsWithDriver(
+		context.Background(),
+		&fakeHostedModelTester{},
+		"",
+		"",
+	); err == nil {
+		t.Fatal("missing model names should fail without a request")
+	}
+
+	err := testHostedModelsWithDriver(
+		context.Background(),
+		&fakeHostedModelTester{chatErr: errors.New("model not found")},
+		"",
+		"missing-chat",
+	)
+	if err == nil || !strings.Contains(err.Error(), `chat model "missing-chat"`) {
+		t.Fatalf("failure = %v", err)
 	}
 }
 

@@ -157,9 +157,10 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 		a.Mode = string(config.ModeHold)
 	}
 
-	// 1. Transcription model → a.TranscribeRef. installWhisperModel registers
-	// on s.Cfg in place, so the just-installed model is visible below.
-	ref, err := installWhisperModel(s)
+	// 1. Transcription model → a.TranscribeRef. A single configured local or
+	// hosted source is automatic; multiple sources produce a picker. With no
+	// source, installWhisperModel registers a local model on s.Cfg.
+	ref, err := installWhisperModel(s, a.TranscribeRef)
 	if err != nil {
 		return err
 	}
@@ -207,7 +208,7 @@ func runWizard(s *Session, prefill *HotkeyAnswers) error {
 
 	// 7. Chat model — only when a stage needs it.
 	if a.NeedsChatModel() {
-		chatRef, err := installChatModel(s)
+		chatRef, err := installChatModel(s, a.ChatRef)
 		if err != nil {
 			return err
 		}
