@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,16 @@ func TestDefaultStructure(t *testing.T) {
 	}
 	if _, ok := c.Hotkeys["ctrl+alt+space"]; !ok {
 		t.Fatal("default ctrl+alt+space hotkey missing")
+	}
+}
+
+func TestEndpointConfigUnloadDefaultsToZero(t *testing.T) {
+	var endpoint EndpointConfig
+	if err := json.Unmarshal([]byte(`{}`), &endpoint); err != nil {
+		t.Fatal(err)
+	}
+	if endpoint.UnloadAfterSeconds != 0 {
+		t.Fatalf("unload_after_seconds = %d, want 0", endpoint.UnloadAfterSeconds)
 	}
 }
 

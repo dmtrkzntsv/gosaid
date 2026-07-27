@@ -30,6 +30,11 @@ func NewLlamaCPP(models map[string]string, unloadAfter time.Duration) *LlamaCPP 
 		config.DriverLlamaCPP)}
 }
 
+// Preload loads model into memory without running inference.
+func (l *LlamaCPP) Preload(model string) error {
+	return l.cache.preload(model)
+}
+
 func (l *LlamaCPP) Chat(ctx context.Context, model, system, user string) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err

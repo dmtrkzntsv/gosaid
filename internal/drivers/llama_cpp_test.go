@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/dmtrkzntsv/gosaid/internal/config"
 	"github.com/dmtrkzntsv/gosaid/internal/llama"
@@ -50,6 +51,12 @@ func (f *fakeLlamaModel) Close() {
 	f.closed = true
 }
 
+func (f *fakeLlamaModel) isClosed() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.closed
+}
+
 func TestLlamaCPPChatUsesLoadedModel(t *testing.T) {
 	fake := &fakeLlamaModel{}
 	loads := 0
@@ -68,6 +75,61 @@ func TestLlamaCPPChatUsesLoadedModel(t *testing.T) {
 	}
 	if loads != 1 {
 		t.Fatalf("expected model to load once and stay resident, got %d loads", loads)
+	}
+}
+
+func chatOK(t *testing.T, d *LlamaCPP) {
+	t.Helper()
+	if _, err := d.Chat(context.Background(), "gemma", "sys", "hello"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLlamaCPPUnloadAfterIdle(t *testing.T) {
+	var mu sync.Mutex
+	var models []*fakeLlamaModel
+	d := NewLlamaCPP(map[string]string{"gemma": "/tmp/x.gguf"}, 20*time.Millisecond)
+	d.cache.load = func(path string) (llamaModel, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		m := &fakeLlamaModel{}
+		models = append(models, m)
+		return m, nil
+	}
+
+	chatOK(t, d)
+	waitFor(t, 2*time.Second, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(models) == 1 && models[0].isClosed()
+	}, "LLM was not unloaded after idle timeout")
+
+	chatOK(t, d)
+	mu.Lock()
+	loads := len(models)
+	mu.Unlock()
+	if loads != 2 {
+		t.Fatalf("expected LLM reload after unload, got %d loads", loads)
+	}
+}
+
+func TestLlamaCPPUnloadDisabledByDefault(t *testing.T) {
+	fake := &fakeLlamaModel{}
+	loads := 0
+	d := NewLlamaCPP(map[string]string{"gemma": "/tmp/x.gguf"}, 0)
+	d.cache.load = func(path string) (llamaModel, error) {
+		loads++
+		return fake, nil
+	}
+
+	chatOK(t, d)
+	time.Sleep(80 * time.Millisecond)
+	chatOK(t, d)
+	if fake.isClosed() {
+		t.Fatal("LLM was unloaded with unload_after_seconds = 0")
+	}
+	if loads != 1 {
+		t.Fatalf("expected LLM to stay resident, got %d loads", loads)
 	}
 }
 

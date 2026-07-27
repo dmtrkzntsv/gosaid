@@ -24,7 +24,7 @@
             "models": {
               "gemma": "~/Library/Application Support/gosaid/models/gemma-3-4b-it-Q4_K_M.gguf"
             },
-            "unload_after_seconds": 300
+            "unload_after_seconds": 0
           }
         }
       ]

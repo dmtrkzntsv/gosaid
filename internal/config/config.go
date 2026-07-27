@@ -41,7 +41,7 @@ type EndpointConfig struct {
 	ChatModel       string            `json:"chat_model,omitempty"`
 	Models          map[string]string `json:"models,omitempty"`
 	// UnloadAfterSeconds (whisper_cpp / llama_cpp only) frees a loaded model after this
-	// many seconds without use; it reloads lazily on the next dictation.
+	// many seconds without use; it reloads lazily on the next use.
 	// 0 or absent keeps models resident once loaded.
 	UnloadAfterSeconds int `json:"unload_after_seconds,omitempty"`
 }

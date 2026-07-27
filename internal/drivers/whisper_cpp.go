@@ -29,6 +29,11 @@ func NewWhisperCPP(models map[string]string, unloadAfter time.Duration) *Whisper
 		config.DriverWhisperCPP)}
 }
 
+// Preload loads model into memory without running transcription.
+func (w *WhisperCPP) Preload(model string) error {
+	return w.cache.preload(model)
+}
+
 func (w *WhisperCPP) run(ctx context.Context, samples []float32, sampleRate int,
 	model string, opts whisper.Options) (whisper.Result, error) {
 	if err := ctx.Err(); err != nil {

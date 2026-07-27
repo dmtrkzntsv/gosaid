@@ -85,6 +85,15 @@ func Run(injector inject.Injector) error {
 	if err != nil {
 		return err
 	}
+	preloadStarted := time.Now()
+	preloaded, err := reg.PreloadHotkeyModels(cfg.Hotkeys)
+	if err != nil {
+		return err
+	}
+	if len(preloaded) > 0 {
+		log.Info("active local models preloaded",
+			"models", preloaded, "elapsed", time.Since(preloadStarted))
+	}
 
 	capturer, err := audio.NewCapturer()
 	if err != nil {

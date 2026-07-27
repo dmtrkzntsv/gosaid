@@ -225,6 +225,8 @@ Matching is case-insensitive for add/remove, so a term is only stored once. Rest
 
 On macOS, local inference runs on the GPU via Metal.
 
-Models load lazily on first use and stay resident for instant dictation, at their full weight size. Budget RAM for every model that can be loaded at once — e.g. whisper `turbo` (~550 MB) plus `gemma-4-e2b` (~2.8 GB) ≈ 3.4 GB. Mixing a small enhance model with a larger compose model is fine, but each loads separately.
+At startup, GoSaid loads the local transcription models and local LLMs referenced by enabled stages in configured hotkeys. Shared model references are loaded once, while unused models registered on an endpoint remain unloaded. This avoids model-loading latency on the first dictation.
+
+By default (`unload_after_seconds` omitted or `0`), loaded models stay resident at their full weight size. Budget RAM for every active model — e.g. whisper `turbo` (~550 MB) plus `gemma-4-e2b` (~2.8 GB) ≈ 3.4 GB. Mixing a small enhance model with a larger compose model is fine, but each loads separately.
 
 Set `unload_after_seconds` on a local endpoint to trade a few seconds of reload latency for that memory.

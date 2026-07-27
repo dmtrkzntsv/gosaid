@@ -87,6 +87,17 @@ func (c *modelCache[M]) acquire(name string) (*cacheEntry[M], error) {
 	return e, nil
 }
 
+// preload loads name into the cache without running inference. Releasing the
+// temporary acquisition also starts the configured idle timer, if any.
+func (c *modelCache[M]) preload(name string) error {
+	e, err := c.acquire(name)
+	if err != nil {
+		return err
+	}
+	c.release(name, e)
+	return nil
+}
+
 // release ends a use begun by acquire and, once the model is idle, arms the
 // unload timer.
 func (c *modelCache[M]) release(name string, e *cacheEntry[M]) {
