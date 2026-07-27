@@ -27,7 +27,7 @@ A list of drivers, each with named endpoints. Models are referenced everywhere e
 - **`llama_cpp`** — local text stages. Same shape, GGUF file paths. `gosaid setup` writes this as the `text` endpoint.
 - **`openai_compatible`** — any hosted OpenAI-compatible API. Needs `api_base` and `api_key`. Works with OpenAI, Groq, OpenRouter, DeepSeek, Together, and others — swap the base URL. Add several endpoints to mix providers.
 
-Local endpoints also take `unload_after_seconds`: an idle model is freed after that many seconds and reloads on the next dictation. Omit it (or use `0`) to keep models resident once loaded.
+Idle unloading is configured globally with `unload_after_seconds`; see [Memory and performance](#memory-and-performance).
 
 ### Managing hosted drivers
 
@@ -69,8 +69,7 @@ registrations continue to be managed by `gosaid setup` and
     "endpoints": [{
       "id": "speech",
       "config": {
-        "models": { "turbo": "~/Library/Application Support/gosaid/models/ggml-large-v3-turbo-q5_0.bin" },
-        "unload_after_seconds": 300
+        "models": { "turbo": "~/Library/Application Support/gosaid/models/ggml-large-v3-turbo-q5_0.bin" }
       }
     }]
   },
@@ -188,7 +187,8 @@ Mixing local and hosted stages within one hotkey is fine, and different hotkeys 
 |---|---|
 | `microphone` | Default input device for every hotkey (substring match). Empty = system default |
 | `user_context` | Free-form personal context (name, role, tone, email signature) fed to the `compose` stage. Any language |
-| `toggle_max_seconds` | Safety cap on a `toggle` recording. Default `60` |
+| `toggle_max_seconds` | Safety cap on a `toggle` recording. Default `360` |
+| `unload_after_seconds` | Free all idle local models after this many seconds. `0` (default) keeps them resident |
 | `injection_mode` | How text reaches the app under your cursor. `paste` is currently the only supported value |
 | `sound_feedback` | Play start/stop cues when recording |
 | `log_level` | `debug`, `info`, `warn`, or `error`. Default `info`; unrecognized values fall back to it |
@@ -229,4 +229,4 @@ At startup, GoSaid loads the local transcription models and local LLMs reference
 
 By default (`unload_after_seconds` omitted or `0`), loaded models stay resident at their full weight size. Budget RAM for every active model — e.g. whisper `turbo` (~550 MB) plus `gemma-4-e2b` (~2.8 GB) ≈ 3.4 GB. Mixing a small enhance model with a larger compose model is fine, but each loads separately.
 
-Set `unload_after_seconds` on a local endpoint to trade a few seconds of reload latency for that memory.
+Set the top-level `unload_after_seconds` to trade a few seconds of reload latency for that memory. The timeout applies to every local Whisper and LLM model.

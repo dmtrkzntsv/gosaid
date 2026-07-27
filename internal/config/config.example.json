@@ -23,8 +23,7 @@
           "config": {
             "models": {
               "gemma": "~/Library/Application Support/gosaid/models/gemma-3-4b-it-Q4_K_M.gguf"
-            },
-            "unload_after_seconds": 0
+            }
           }
         }
       ]
@@ -76,7 +75,8 @@
       }
     }
   },
-  "toggle_max_seconds": 60,
+  "toggle_max_seconds": 360,
+  "unload_after_seconds": 0,
   "injection_mode": "paste",
   "sound_feedback": true,
   "log_level": "err",

@@ -28,15 +28,21 @@ func TestDefaultStructure(t *testing.T) {
 	if _, ok := c.Hotkeys["ctrl+alt+space"]; !ok {
 		t.Fatal("default ctrl+alt+space hotkey missing")
 	}
+	if c.ToggleMaxSeconds != 360 {
+		t.Fatalf("toggle_max_seconds = %d, want 360", c.ToggleMaxSeconds)
+	}
+	if c.UnloadAfterSeconds != 0 {
+		t.Fatalf("unload_after_seconds = %d, want 0", c.UnloadAfterSeconds)
+	}
 }
 
-func TestEndpointConfigUnloadDefaultsToZero(t *testing.T) {
-	var endpoint EndpointConfig
-	if err := json.Unmarshal([]byte(`{}`), &endpoint); err != nil {
+func TestConfigUnloadDefaultsToZero(t *testing.T) {
+	var cfg Config
+	if err := json.Unmarshal([]byte(`{}`), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if endpoint.UnloadAfterSeconds != 0 {
-		t.Fatalf("unload_after_seconds = %d, want 0", endpoint.UnloadAfterSeconds)
+	if cfg.UnloadAfterSeconds != 0 {
+		t.Fatalf("unload_after_seconds = %d, want 0", cfg.UnloadAfterSeconds)
 	}
 }
 
@@ -260,20 +266,14 @@ func TestValidateWhisperCPPValid(t *testing.T) {
 
 func TestValidateWhisperCPPUnloadAfterSeconds(t *testing.T) {
 	cfg := whisperTestConfig(t, tempModelFile(t))
-	cfg.Drivers[1].Endpoints[0].Config.UnloadAfterSeconds = 300
+	cfg.UnloadAfterSeconds = 300
 	if err := Validate(cfg); err != nil {
 		t.Fatalf("expected valid, got: %v", err)
 	}
 
-	cfg.Drivers[1].Endpoints[0].Config.UnloadAfterSeconds = -1
+	cfg.UnloadAfterSeconds = -1
 	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "unload_after_seconds") {
 		t.Fatalf("expected negative unload_after_seconds error, got: %v", err)
-	}
-
-	cfg = whisperTestConfig(t, tempModelFile(t))
-	cfg.Drivers[0].Endpoints[0].Config.UnloadAfterSeconds = 300
-	if err := Validate(cfg); err == nil || !strings.Contains(err.Error(), "whisper_cpp") {
-		t.Fatalf("expected whisper_cpp-only error, got: %v", err)
 	}
 }
 

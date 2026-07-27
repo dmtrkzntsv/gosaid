@@ -26,14 +26,15 @@ func llamaTestConfig(t *testing.T) *Config {
 			}}},
 			{Driver: DriverLlamaCPP, Endpoints: []Endpoint{{
 				ID:     "local-llm",
-				Config: EndpointConfig{Models: map[string]string{"gemma": model}, UnloadAfterSeconds: 300},
+				Config: EndpointConfig{Models: map[string]string{"gemma": model}},
 			}}},
 		},
 		Hotkeys: map[string]Hotkey{"ctrl+alt+space": {
 			Transcribe: TranscribeStage{Model: "openai:whisper-1"},
 			Enhance:    &EnhanceStage{Model: "local-llm:gemma"},
 		}},
-		ToggleMaxSeconds: 60,
+		ToggleMaxSeconds:   60,
+		UnloadAfterSeconds: 300,
 	}
 }
 

@@ -5,9 +5,12 @@ type Config struct {
 	Drivers          []Driver          `json:"drivers"`
 	Hotkeys          map[string]Hotkey `json:"hotkeys"`
 	ToggleMaxSeconds int               `json:"toggle_max_seconds"`
-	InjectionMode    string            `json:"injection_mode"`
-	SoundFeedback    bool              `json:"sound_feedback"`
-	LogLevel         string            `json:"log_level"`
+	// UnloadAfterSeconds frees loaded local Whisper and LLM models after this
+	// many seconds without use. 0 or absent keeps models resident.
+	UnloadAfterSeconds int    `json:"unload_after_seconds"`
+	InjectionMode      string `json:"injection_mode"`
+	SoundFeedback      bool   `json:"sound_feedback"`
+	LogLevel           string `json:"log_level"`
 	// UserContext is free-form personal context (name, role, tone preferences)
 	// injected into the compose stage system prompt. Can be written in any
 	// language; the model is instructed to match the user's instruction
@@ -40,10 +43,6 @@ type EndpointConfig struct {
 	TranscribeModel string            `json:"transcribe_model,omitempty"`
 	ChatModel       string            `json:"chat_model,omitempty"`
 	Models          map[string]string `json:"models,omitempty"`
-	// UnloadAfterSeconds (whisper_cpp / llama_cpp only) frees a loaded model after this
-	// many seconds without use; it reloads lazily on the next use.
-	// 0 or absent keeps models resident once loaded.
-	UnloadAfterSeconds int `json:"unload_after_seconds,omitempty"`
 }
 
 // MicrophoneFor resolves the input device for a hotkey: the hotkey's own
@@ -135,7 +134,7 @@ const (
 	DriverWhisperCPP       = "whisper_cpp"
 	DriverLlamaCPP         = "llama_cpp"
 	InjectionModePaste     = "paste"
-	DefaultToggleSeconds   = 60
+	DefaultToggleSeconds   = 360
 )
 
 // Default returns a minimal, valid-structure config that nevertheless requires

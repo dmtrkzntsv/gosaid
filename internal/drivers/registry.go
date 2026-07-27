@@ -32,10 +32,10 @@ func BuildRegistry(cfg *config.Config) (*Registry, error) {
 				r.endpoints[e.ID] = NewOpenAICompatible(e.Config.APIBase, e.Config.APIKey)
 			case config.DriverWhisperCPP:
 				r.endpoints[e.ID] = NewWhisperCPP(e.Config.Models,
-					time.Duration(e.Config.UnloadAfterSeconds)*time.Second)
+					time.Duration(cfg.UnloadAfterSeconds)*time.Second)
 			case config.DriverLlamaCPP:
 				r.endpoints[e.ID] = NewLlamaCPP(e.Config.Models,
-					time.Duration(e.Config.UnloadAfterSeconds)*time.Second)
+					time.Duration(cfg.UnloadAfterSeconds)*time.Second)
 			default:
 				return nil, fmt.Errorf("unsupported driver type %q", d.Driver)
 			}

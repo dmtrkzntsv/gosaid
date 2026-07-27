@@ -134,13 +134,16 @@ func TestLlamaCPPUnloadDisabledByDefault(t *testing.T) {
 }
 
 func TestBuildRegistryLlamaCPP(t *testing.T) {
-	cfg := &config.Config{Drivers: []config.Driver{{
-		Driver: config.DriverLlamaCPP,
-		Endpoints: []config.Endpoint{{
-			ID:     "local-llm",
-			Config: config.EndpointConfig{Models: map[string]string{"gemma": "/tmp/x.gguf"}},
+	cfg := &config.Config{
+		UnloadAfterSeconds: 42,
+		Drivers: []config.Driver{{
+			Driver: config.DriverLlamaCPP,
+			Endpoints: []config.Endpoint{{
+				ID:     "local-llm",
+				Config: config.EndpointConfig{Models: map[string]string{"gemma": "/tmp/x.gguf"}},
+			}},
 		}},
-	}}}
+	}
 	r, err := BuildRegistry(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +152,11 @@ func TestBuildRegistryLlamaCPP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := d.(*LlamaCPP); !ok {
+	local, ok := d.(*LlamaCPP)
+	if !ok {
 		t.Fatalf("expected *LlamaCPP, got %T", d)
+	}
+	if local.cache.unloadAfter != 42*time.Second {
+		t.Fatalf("unloadAfter = %s, want 42s", local.cache.unloadAfter)
 	}
 }

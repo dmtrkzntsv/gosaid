@@ -191,13 +191,16 @@ func TestWhisperCPPUnloadSkipsInflight(t *testing.T) {
 }
 
 func TestBuildRegistryWhisperCPP(t *testing.T) {
-	cfg := &config.Config{Drivers: []config.Driver{{
-		Driver: config.DriverWhisperCPP,
-		Endpoints: []config.Endpoint{{
-			ID:     "local",
-			Config: config.EndpointConfig{Models: map[string]string{"base": "/tmp/x.bin"}},
+	cfg := &config.Config{
+		UnloadAfterSeconds: 42,
+		Drivers: []config.Driver{{
+			Driver: config.DriverWhisperCPP,
+			Endpoints: []config.Endpoint{{
+				ID:     "local",
+				Config: config.EndpointConfig{Models: map[string]string{"base": "/tmp/x.bin"}},
+			}},
 		}},
-	}}}
+	}
 	r, err := BuildRegistry(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -206,7 +209,11 @@ func TestBuildRegistryWhisperCPP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := d.(*WhisperCPP); !ok {
+	local, ok := d.(*WhisperCPP)
+	if !ok {
 		t.Fatalf("expected *WhisperCPP, got %T", d)
+	}
+	if local.cache.unloadAfter != 42*time.Second {
+		t.Fatalf("unloadAfter = %s, want 42s", local.cache.unloadAfter)
 	}
 }

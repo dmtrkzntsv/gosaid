@@ -53,15 +53,9 @@ func Validate(cfg *Config) error {
 				if e.Config.APIKey == "" {
 					return fmt.Errorf("endpoint %q: api_key is required", e.ID)
 				}
-				if e.Config.UnloadAfterSeconds != 0 {
-					return fmt.Errorf("endpoint %q: unload_after_seconds only applies to whisper_cpp and llama_cpp endpoints", e.ID)
-				}
 			case DriverWhisperCPP, DriverLlamaCPP:
 				if len(e.Config.Models) == 0 {
 					return fmt.Errorf("endpoint %q: a non-empty models map is required for %s", e.ID, d.Driver)
-				}
-				if e.Config.UnloadAfterSeconds < 0 {
-					return fmt.Errorf("endpoint %q: unload_after_seconds must not be negative", e.ID)
 				}
 				for name, p := range e.Config.Models {
 					abs, err := ExpandPath(p)
@@ -86,6 +80,9 @@ func Validate(cfg *Config) error {
 	}
 	if cfg.ToggleMaxSeconds <= 0 {
 		return fmt.Errorf("toggle_max_seconds must be > 0")
+	}
+	if cfg.UnloadAfterSeconds < 0 {
+		return fmt.Errorf("unload_after_seconds must not be negative")
 	}
 
 	if len(cfg.Hotkeys) == 0 {
